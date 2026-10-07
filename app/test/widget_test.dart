@@ -11,6 +11,7 @@ import 'dart:convert';
 import 'package:chio_daily/models/diary_entry.dart';
 import 'package:chio_daily/data/diary_store.dart';
 import 'package:chio_daily/models/diary_comment.dart';
+import 'package:chio_daily/models/daily_log.dart';
 import 'package:chio_daily/models/pet_profile.dart';
 import 'package:chio_daily/models/place.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -290,6 +291,85 @@ void main() {
       backupFileName('x', 'json', DateTime(2026, 10, 7)),
       'x-2026-10-07.json',
     );
+  });
+
+  test('일기 산책·추가 급여 저장 왕복', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalDiaryStore();
+    await store.save(
+      const DiaryEntry(
+        id: 'w1',
+        date: '2026-10-07',
+        walks: [
+          WalkLog(
+            time: '07:30',
+            place: '한강공원',
+            minutes: 30,
+            poop: '정상',
+            memo: '신나게 뜀',
+          ),
+          WalkLog(time: '19:00', place: '동네', minutes: 15, poop: '없음'),
+        ],
+        feeds: [FeedLog(time: '15:00', kind: '간식', amount: '3개', memo: '닭가슴살')],
+      ),
+    );
+    final e = (await store.load()).single;
+    expect(e.walks.length, 2);
+    expect(e.walks.first.summary, '07:30 · 한강공원 · 30분 · 배변 정상');
+    expect(e.walks.last.summary, '19:00 · 동네 · 15분 · 배변 없음');
+    expect(e.feeds.single.summary, '15:00 · 간식 · 3개');
+    // 서버 문서용 메타에도 포함되어야 한다
+    final meta = e.toMeta();
+    expect((meta['walks'] as List).length, 2);
+    expect((meta['feeds'] as List).length, 1);
+    // 이전 일기(산책·급여 필드 없음)도 읽힌다
+    final old = DiaryEntry.fromMap({
+      'id': 'o',
+      'date': '2026-01-01',
+      'body': '옛 일기',
+    });
+    expect(old.walks, isEmpty);
+    expect(old.feeds, isEmpty);
+  });
+
+  testWidgets('일기 작성 화면에서 산책과 추가 급여 입력', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(ChioApp(store: LocalProfileStore()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('일기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('일기 쓰기'));
+    await tester.pumpAndSettle();
+    // 산책 추가
+    await tester.tap(find.text('산책 추가'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, '장소 (예: 한강공원)'),
+      '한강공원',
+    );
+    await tester.enterText(find.widgetWithText(TextField, '산책 시간(분)'), '30');
+    await tester.tap(find.text('정상'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('한강공원 · 30분 · 배변 정상'), findsOneWidget);
+    // 추가 급여
+    await tester.tap(find.text('추가').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('간식'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, '양 (예: 3개, 한 스푼, 20g)'),
+      '3개',
+    );
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('간식 · 3개'), findsOneWidget);
+    // 본문 없이도 저장되고, 목록 카드에 요약이 보인다
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('산책 1회 (30분)'), findsOneWidget);
+    expect(find.textContaining('추가 급여 1건'), findsOneWidget);
   });
 
   test('D-day 문구', () {

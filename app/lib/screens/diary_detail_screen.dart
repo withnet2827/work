@@ -202,6 +202,28 @@ class _DiaryDetailScreenState extends State<DiaryDetailScreen> {
                       Text(e.author, style: text.titleSmall),
                   ],
                 ),
+                if (e.walks.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text('🚶 산책 ${e.walks.length}회', style: text.titleSmall),
+                  for (var i = 0; i < e.walks.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        '${i + 1}회  ${e.walks[i].summary}${e.walks[i].memo.isEmpty ? '' : '\n      ${e.walks[i].memo}'}',
+                      ),
+                    ),
+                ],
+                if (e.feeds.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text('🍖 추가 급여 ${e.feeds.length}건', style: text.titleSmall),
+                  for (final f in e.feeds)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        '${f.summary}${f.memo.isEmpty ? '' : '\n  ${f.memo}'}',
+                      ),
+                    ),
+                ],
                 if (e.body.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   SelectableText(e.body, style: text.bodyLarge),

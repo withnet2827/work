@@ -160,6 +160,8 @@ class _DiaryScreenState extends State<DiaryScreen> {
   }
 }
 
+int _walkMinutes(DiaryEntry e) => e.walks.fold(0, (a, w) => a + w.minutes);
+
 class _EntryCard extends StatelessWidget {
   const _EntryCard({required this.entry, required this.onTap});
   final DiaryEntry entry;
@@ -189,6 +191,19 @@ class _EntryCard extends StatelessWidget {
                     Text(entry.author, style: text.bodySmall),
                 ],
               ),
+              if (entry.walks.isNotEmpty || entry.feeds.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    [
+                      if (entry.walks.isNotEmpty)
+                        '🚶 산책 ${entry.walks.length}회${_walkMinutes(entry) > 0 ? ' (${_walkMinutes(entry)}분)' : ''}',
+                      if (entry.feeds.isNotEmpty)
+                        '🍖 추가 급여 ${entry.feeds.length}건',
+                    ].join('   '),
+                    style: text.bodySmall,
+                  ),
+                ),
               if (entry.commentCount > 0 || entry.reactionCount > 0)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),

@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/attachment.dart';
+import '../models/daily_log.dart';
 import '../models/diary_entry.dart';
 import 'attachment_viewer_screen.dart';
+import 'daily_log_sections.dart';
 
 String todayString([DateTime? now]) {
   final n = now ?? DateTime.now();
@@ -35,6 +37,8 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
   late String _date = widget.entry.date;
   late String _mood = widget.entry.mood;
   late List<String> _photos = List.of(widget.entry.photos);
+  late List<WalkLog> _walks = List.of(widget.entry.walks);
+  late List<FeedLog> _feeds = List.of(widget.entry.feeds);
   bool _busy = false;
 
   @override
@@ -95,7 +99,10 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
   }
 
   Future<void> _save() async {
-    if (_body.text.trim().isEmpty && _photos.isEmpty) {
+    if (_body.text.trim().isEmpty &&
+        _photos.isEmpty &&
+        _walks.isEmpty &&
+        _feeds.isEmpty) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('내용이나 사진을 넣어 주세요.')));
       return;
@@ -108,6 +115,8 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
           body: _body.text.trim(),
           mood: _mood,
           photos: _photos,
+          walks: _walks,
+          feeds: _feeds,
         ),
       );
       if (mounted) Navigator.of(context).pop();
@@ -202,6 +211,15 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
                   onSelected: (v) => setState(() => _mood = v ? m : ''),
                 ),
             ],
+          ),
+          const SizedBox(height: 12),
+          WalkSection(
+            walks: _walks,
+            onChanged: (v) => setState(() => _walks = v),
+          ),
+          FeedSection(
+            feeds: _feeds,
+            onChanged: (v) => setState(() => _feeds = v),
           ),
           const SizedBox(height: 12),
           TextField(
