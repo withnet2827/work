@@ -6,6 +6,7 @@ import 'package:chio_daily/models/visit.dart';
 import 'package:chio_daily/data/visit_store.dart';
 import 'package:chio_daily/models/diary_entry.dart';
 import 'package:chio_daily/data/diary_store.dart';
+import 'package:chio_daily/models/diary_comment.dart';
 import 'package:chio_daily/models/pet_profile.dart';
 import 'package:chio_daily/models/place.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -83,6 +84,76 @@ void main() {
     await store.delete('a');
     list = await store.load();
     expect(list.single.body, '수정');
+  });
+
+  test('일기 댓글·공감 저장과 집계(로컬)', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalDiaryStore();
+    await store.save(const DiaryEntry(id: 'a', date: '2026-10-01', body: '첫째'));
+    await store.addComment(
+      'a',
+      const DiaryComment(
+        id: 'c1',
+        author: '엄마',
+        authorId: 'u1',
+        text: '귀여워',
+        createdAt: 1,
+      ),
+    );
+    await store.addComment(
+      'a',
+      const DiaryComment(
+        id: 'c2',
+        author: '아빠',
+        authorId: 'u2',
+        text: '최고',
+        createdAt: 2,
+      ),
+    );
+    await store.setReaction('a', 'u1', '엄마', '❤️');
+    await store.setReaction('a', 'u2', '아빠', '👍');
+    await store.setReaction('a', 'u2', '아빠', '❤️'); // 구성원당 1개: 바꾸면 교체
+    var e = (await store.load()).single;
+    expect(e.commentCount, 2);
+    expect(e.reactionCount, 2);
+    expect((await store.loadComments('a')).map((c) => c.text), ['귀여워', '최고']);
+    expect(
+      (await store.loadReactions('a')).every((r) => r.emoji == '❤️'),
+      isTrue,
+    );
+    await store.deleteComment('a', 'c1');
+    await store.setReaction('a', 'u1', '엄마', null);
+    e = (await store.load()).single;
+    expect(e.commentCount, 1);
+    expect(e.reactionCount, 1);
+  });
+
+  testWidgets('일기 상세에서 댓글과 공감', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(ChioApp(store: LocalProfileStore()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('일기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('일기 쓰기'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '오늘 공원 산책!');
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('오늘 공원 산책!'));
+    await tester.pumpAndSettle();
+    expect(find.text('첫 댓글을 남겨 보세요.'), findsOneWidget);
+    await tester.tap(find.textContaining('❤️'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '댓글 달기'), '정말 귀엽다');
+    await tester.tap(find.byIcon(Icons.send));
+    await tester.pumpAndSettle();
+    expect(find.text('정말 귀엽다'), findsOneWidget);
+    expect(find.text('댓글 1'), findsOneWidget);
+    // 목록으로 돌아오면 집계가 보인다
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.textContaining('💬 1'), findsOneWidget);
+    expect(find.textContaining('❤️ 1'), findsOneWidget);
   });
 
   testWidgets('일기 탭에서 일기 쓰기', (tester) async {

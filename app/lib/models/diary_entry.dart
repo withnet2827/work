@@ -8,6 +8,8 @@ class DiaryEntry {
     this.author = '',
     this.photos = const [],
     this.createdAt = 0,
+    this.commentCount = 0,
+    this.reactionCount = 0,
   });
 
   static const moods = ['😊', '🥰', '😴', '🤒', '😢', '🎉'];
@@ -19,6 +21,8 @@ class DiaryEntry {
   final String author;
   final List<String> photos;
   final int createdAt; // millisecondsSinceEpoch
+  final int commentCount; // 서버가 관리하는 집계값(저장 시 덮어쓰지 않음)
+  final int reactionCount;
 
   DiaryEntry copyWith({
     String? date,
@@ -33,7 +37,22 @@ class DiaryEntry {
     author: author,
     photos: photos ?? this.photos,
     createdAt: createdAt,
+    commentCount: commentCount,
+    reactionCount: reactionCount,
   );
+
+  DiaryEntry withCounts({required int comments, required int reactions}) =>
+      DiaryEntry(
+        id: id,
+        date: date,
+        body: body,
+        mood: mood,
+        author: author,
+        photos: photos,
+        createdAt: createdAt,
+        commentCount: comments,
+        reactionCount: reactions,
+      );
 
   /// 사진 제외 본문 정보(서버 문서용)
   Map<String, dynamic> toMeta() => {
@@ -61,6 +80,8 @@ class DiaryEntry {
     mood: m['mood'] as String? ?? '',
     author: m['author'] as String? ?? '',
     createdAt: (m['createdAt'] as num?)?.toInt() ?? 0,
+    commentCount: (m['commentCount'] as num?)?.toInt() ?? 0,
+    reactionCount: (m['reactionCount'] as num?)?.toInt() ?? 0,
     photos: photos ?? List<String>.from(m['photos'] as List? ?? const []),
   );
 }

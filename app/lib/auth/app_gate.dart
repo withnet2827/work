@@ -90,6 +90,7 @@ class _AppGateState extends State<AppGate> {
             inviteCode: family.inviteCode,
             memberCount: family.memberUids.length,
             userLabel: user.displayName ?? user.email ?? '',
+            userId: user.uid,
             onSignOut: () => FirebaseAuth.instance.signOut(),
           ),
         );

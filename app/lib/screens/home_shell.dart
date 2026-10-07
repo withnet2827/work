@@ -19,12 +19,14 @@ class FamilyInfo {
     required this.inviteCode,
     required this.memberCount,
     required this.userLabel,
+    this.userId = 'local',
     required this.onSignOut,
   });
   final String name;
   final String inviteCode;
   final int memberCount;
   final String userLabel;
+  final String userId;
   final VoidCallback onSignOut;
 }
 
@@ -165,6 +167,7 @@ class _HomeShellState extends State<HomeShell> {
         authorName: widget.familyInfo?.userLabel.isNotEmpty == true
             ? widget.familyInfo!.userLabel
             : '나',
+        userId: widget.familyInfo?.userId ?? 'local',
       ),
       VisitsScreen(
         store: _visitStore,

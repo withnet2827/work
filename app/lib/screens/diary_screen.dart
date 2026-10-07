@@ -6,13 +6,20 @@ import '../data/diary_store.dart';
 import '../models/attachment.dart';
 import '../models/diary_entry.dart';
 import 'attachment_viewer_screen.dart';
+import 'diary_detail_screen.dart';
 import 'diary_edit_screen.dart';
 
 /// 일기 탭: 월별로 묶은 타임라인.
 class DiaryScreen extends StatefulWidget {
-  const DiaryScreen({super.key, required this.store, required this.authorName});
+  const DiaryScreen({
+    super.key,
+    required this.store,
+    required this.authorName,
+    this.userId = 'local',
+  });
   final DiaryStore store;
   final String authorName;
+  final String userId;
 
   @override
   State<DiaryScreen> createState() => _DiaryScreenState();
@@ -70,6 +77,21 @@ class _DiaryScreenState extends State<DiaryScreen> {
     );
   }
 
+  void _openDetail(DiaryEntry e) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DiaryDetailScreen(
+          entry: e,
+          store: widget.store,
+          userId: widget.userId,
+          userName: widget.authorName,
+          onEdit: () => _open(e, isNew: false),
+          onChanged: _reload,
+        ),
+      ),
+    );
+  }
+
   void _write() {
     final now = DateTime.now();
     _open(
@@ -117,7 +139,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
             ),
           );
         }
-        children.add(_EntryCard(entry: e, onTap: () => _open(e, isNew: false)));
+        children.add(_EntryCard(entry: e, onTap: () => _openDetail(e)));
       }
       body = RefreshIndicator(
         onRefresh: _reload,
@@ -167,6 +189,17 @@ class _EntryCard extends StatelessWidget {
                     Text(entry.author, style: text.bodySmall),
                 ],
               ),
+              if (entry.commentCount > 0 || entry.reactionCount > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    [
+                      if (entry.reactionCount > 0) '❤️ ${entry.reactionCount}',
+                      if (entry.commentCount > 0) '💬 ${entry.commentCount}',
+                    ].join('  '),
+                    style: text.bodySmall,
+                  ),
+                ),
               if (entry.body.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(entry.body, maxLines: 5, overflow: TextOverflow.ellipsis),

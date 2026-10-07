@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../models/diary_comment.dart';
 import '../models/diary_entry.dart';
 import 'diary_store.dart';
 
@@ -81,7 +82,8 @@ class FirestoreDiaryStore implements DiaryStore {
     for (final d in old.docs) {
       if (!keep.contains(d.id)) await d.reference.delete();
     }
-    await _entries.doc(entry.id).set(entry.toMeta());
+    // merge: 서버가 관리하는 commentCount·reactionCount를 덮어쓰지 않는다.
+    await _entries.doc(entry.id).set(entry.toMeta(), SetOptions(merge: true));
   }
 
   @override
@@ -90,6 +92,73 @@ class FirestoreDiaryStore implements DiaryStore {
     for (final d in old.docs) {
       await d.reference.delete();
     }
+    for (final sub in ['comments', 'reactions']) {
+      final docs = await _entries.doc(id).collection(sub).get();
+      for (final d in docs.docs) {
+        await d.reference.delete();
+      }
+    }
     await _entries.doc(id).delete();
+  }
+
+  // ---- 댓글·공감: diary/{id}/comments/{cid}, diary/{id}/reactions/{uid} ----
+  @override
+  Future<List<DiaryComment>> loadComments(String entryId) async {
+    final snap = await _entries
+        .doc(entryId)
+        .collection('comments')
+        .orderBy('createdAt')
+        .get();
+    return [
+      for (final d in snap.docs) DiaryComment.fromMap(d.data(), id: d.id),
+    ];
+  }
+
+  @override
+  Future<void> addComment(String entryId, DiaryComment c) async {
+    final ref = _entries.doc(entryId);
+    await ref.collection('comments').doc(c.id).set(c.toMap());
+    await ref.update({'commentCount': FieldValue.increment(1)});
+  }
+
+  @override
+  Future<void> deleteComment(String entryId, String commentId) async {
+    final ref = _entries.doc(entryId);
+    await ref.collection('comments').doc(commentId).delete();
+    await ref.update({'commentCount': FieldValue.increment(-1)});
+  }
+
+  @override
+  Future<List<DiaryReaction>> loadReactions(String entryId) async {
+    final snap = await _entries.doc(entryId).collection('reactions').get();
+    return [
+      for (final d in snap.docs)
+        DiaryReaction(
+          userId: d.id,
+          author: d.data()['author'] as String? ?? '',
+          emoji: d.data()['emoji'] as String? ?? '',
+        ),
+    ];
+  }
+
+  @override
+  Future<void> setReaction(
+    String entryId,
+    String userId,
+    String author,
+    String? emoji,
+  ) async {
+    final ref = _entries.doc(entryId);
+    final mine = ref.collection('reactions').doc(userId);
+    final had = (await mine.get()).exists;
+    if (emoji == null) {
+      if (had) {
+        await mine.delete();
+        await ref.update({'reactionCount': FieldValue.increment(-1)});
+      }
+    } else {
+      await mine.set({'author': author, 'emoji': emoji});
+      if (!had) await ref.update({'reactionCount': FieldValue.increment(1)});
+    }
   }
 }
