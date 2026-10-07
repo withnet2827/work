@@ -8,6 +8,7 @@ import '../models/daily_log.dart';
 import '../models/diary_entry.dart';
 import 'attachment_viewer_screen.dart';
 import 'daily_log_sections.dart';
+import '../util/photo_compress.dart';
 
 String todayString([DateTime? now]) {
   final n = now ?? DateTime.now();
@@ -92,7 +93,7 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
     } else {
       files = await picker.pickMultiImage(maxWidth: 1280, imageQuality: 70);
     }
-    final added = [for (final f in files) base64Encode(await f.readAsBytes())];
+    final added = [for (final f in files) compressPhoto(await f.readAsBytes())];
     if (mounted && added.isNotEmpty) {
       setState(() => _photos = [..._photos, ...added]);
     }

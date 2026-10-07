@@ -1,10 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/pet_profile.dart';
 import '../widgets_pet_avatar.dart';
+import '../util/photo_compress.dart';
 
 class ProfileEditScreen extends StatefulWidget {
   const ProfileEditScreen({super.key, required this.initial});
@@ -79,7 +78,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     );
     if (x == null) return;
     final bytes = await x.readAsBytes();
-    if (mounted) setState(() => _photo = base64Encode(bytes));
+    if (mounted) setState(() => _photo = compressPhoto(bytes));
   }
 
   void _photoMenu() {

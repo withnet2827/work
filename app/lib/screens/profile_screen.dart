@@ -10,6 +10,7 @@ import '../models/place.dart';
 import '../widgets_pet_avatar.dart';
 import 'attachment_viewer_screen.dart';
 import 'place_edit_screen.dart';
+import '../util/photo_compress.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({
@@ -190,7 +191,7 @@ class _PlaceCard extends StatelessWidget {
       added.add(
         Attachment(
           id: '${DateTime.now().microsecondsSinceEpoch}-${added.length}',
-          photoBase64: base64Encode(bytes),
+          photoBase64: compressPhoto(bytes),
           label: meta.$1,
           date: meta.$2,
         ),

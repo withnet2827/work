@@ -9,6 +9,7 @@ import '../models/place.dart';
 import '../models/visit.dart';
 import 'attachment_viewer_screen.dart';
 import 'diary_edit_screen.dart' show todayString;
+import '../util/photo_compress.dart';
 
 /// 방문(병원·미용 등) 기록 작성·수정. 사진은 열 때 따로 불러온다.
 class VisitEditScreen extends StatefulWidget {
@@ -209,7 +210,7 @@ class _VisitEditScreenState extends State<VisitEditScreen> {
       added.add(
         Attachment(
           id: '${DateTime.now().microsecondsSinceEpoch}-${added.length}',
-          photoBase64: base64Encode(await f.readAsBytes()),
+          photoBase64: compressPhoto(await f.readAsBytes()),
           label: chosen,
           date: _date,
         ),
