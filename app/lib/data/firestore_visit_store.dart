@@ -2,12 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/attachment.dart';
 import '../models/visit.dart';
+import 'change_source.dart';
 import 'visit_store.dart';
 
 /// 가족 공유 방문 기록.
 ///  - families/{id}/visits/{visitId}            : 방문 정보(사진 제외)
 ///  - families/{id}/visitPhotos/{visitId}_{n}   : 사진 1장 = 문서 1개 {visitId, idx, label, date, b64}
-class FirestoreVisitStore implements VisitStore {
+class FirestoreVisitStore implements VisitStore, ChangeSource {
   FirestoreVisitStore(this.familyId, [FirebaseFirestore? db])
     : _db = db ?? FirebaseFirestore.instance;
   final String familyId;
@@ -20,6 +21,9 @@ class FirestoreVisitStore implements VisitStore {
       _db.collection('families').doc(familyId).collection('visits');
   CollectionReference<Map<String, dynamic>> get _photos =>
       _db.collection('families').doc(familyId).collection('visitPhotos');
+
+  @override
+  Stream<void> get changes => _visits.snapshots().skip(1).map((_) {});
 
   @override
   Future<List<Visit>> load() async {

@@ -1,9 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'change_source.dart';
 import 'record_store.dart';
 
 /// 가족 공유 저장소: families/{familyId}/{collection}/{id} 문서 1개 = 기록 1건.
-class FirestoreRecordStore<T> implements RecordStore<T> {
+class FirestoreRecordStore<T> implements RecordStore<T>, ChangeSource {
   FirestoreRecordStore({
     required this.familyId,
     required this.collection,
@@ -23,6 +24,9 @@ class FirestoreRecordStore<T> implements RecordStore<T> {
 
   CollectionReference<Map<String, dynamic>> get _col =>
       _db.collection('families').doc(familyId).collection(collection);
+
+  @override
+  Stream<void> get changes => _col.snapshots().skip(1).map((_) {});
 
   @override
   Future<List<T>> load() async {

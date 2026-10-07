@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/change_source.dart';
 import '../data/record_store.dart';
 import '../models/weight_log.dart';
 import 'diary_edit_screen.dart' show todayString;
@@ -23,10 +24,19 @@ class _WeightSectionState extends State<WeightSection> {
   bool _loading = true;
   String? _error;
 
+  ChangeWatcher? _watcher;
+
   @override
   void initState() {
     super.initState();
     _reload();
+    _watcher = ChangeWatcher(widget.store, _reload); // 다른 가족이 기록한 체중을 바로 반영
+  }
+
+  @override
+  void dispose() {
+    _watcher?.dispose();
+    super.dispose();
   }
 
   Future<void> _reload() async {

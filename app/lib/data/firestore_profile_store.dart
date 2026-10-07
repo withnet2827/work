@@ -1,13 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/pet_profile.dart';
+import 'change_source.dart';
 import 'profile_store.dart';
 
 /// 가족 공유 저장소(Firestore).
 ///  - families/{id}/data/profile : 프로필 텍스트 정보(사진 제외)
 ///  - families/{id}/photos/{photoId} : 압축된 사진 1장 = 문서 1개(Firestore 문서 1MB 제한 때문에 분리)
 /// 사진 id: 'profile'(대표 사진), 'att_<첨부id>'
-class FirestoreProfileStore implements ProfileStore {
+class FirestoreProfileStore implements ProfileStore, ChangeSource {
   FirestoreProfileStore(this.familyId, [FirebaseFirestore? db])
     : _db = db ?? FirebaseFirestore.instance;
   final String familyId;
@@ -25,6 +26,9 @@ class FirestoreProfileStore implements ProfileStore {
       .doc('profile');
   CollectionReference<Map<String, dynamic>> get _photos =>
       _db.collection('families').doc(familyId).collection('photos');
+
+  @override
+  Stream<void> get changes => _profileDoc.snapshots().skip(1).map((_) {});
 
   @override
   Future<PetProfile> load() async {

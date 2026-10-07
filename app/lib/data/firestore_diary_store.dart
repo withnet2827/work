@@ -2,13 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/diary_comment.dart';
 import '../models/diary_entry.dart';
+import 'change_source.dart';
 import 'diary_store.dart';
 
 /// 가족 공유 일기 저장소.
 ///  - families/{id}/diary/{entryId}        : 본문·날짜·기분·작성자(사진 제외)
 ///  - families/{id}/diaryPhotos/{entryId}_{n} : 사진 1장 = 문서 1개 {entryId, idx, b64}
 /// 일기 1편이 문서 1개라서 가족이 동시에 서로 다른 일기를 써도 덮어쓰지 않는다.
-class FirestoreDiaryStore implements DiaryStore {
+class FirestoreDiaryStore implements DiaryStore, ChangeSource {
   FirestoreDiaryStore(this.familyId, [FirebaseFirestore? db])
     : _db = db ?? FirebaseFirestore.instance;
   final String familyId;
@@ -21,6 +22,10 @@ class FirestoreDiaryStore implements DiaryStore {
       _db.collection('families').doc(familyId).collection('diary');
   CollectionReference<Map<String, dynamic>> get _photos =>
       _db.collection('families').doc(familyId).collection('diaryPhotos');
+
+  // 일기 문서는 사진을 다 올린 뒤 마지막에 쓰므로 이 문서의 변화만 보면 된다.
+  @override
+  Stream<void> get changes => _entries.snapshots().skip(1).map((_) {});
 
   @override
   Future<List<DiaryEntry>> load() async {

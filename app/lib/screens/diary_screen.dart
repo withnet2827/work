@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../data/change_source.dart';
 import '../data/diary_store.dart';
 import '../models/attachment.dart';
 import '../models/diary_entry.dart';
@@ -33,10 +34,19 @@ class _DiaryScreenState extends State<DiaryScreen> {
   String _query = '';
   int _view = 0; // 0 목록, 1 달력, 2 사진
 
+  ChangeWatcher? _watcher;
+
   @override
   void initState() {
     super.initState();
     _reload();
+    _watcher = ChangeWatcher(widget.store, _reload); // 다른 가족이 쓴 일기를 바로 반영
+  }
+
+  @override
+  void dispose() {
+    _watcher?.dispose();
+    super.dispose();
   }
 
   Future<void> _reload() async {

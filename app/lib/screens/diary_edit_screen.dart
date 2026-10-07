@@ -41,6 +41,8 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
   late List<WalkLog> _walks = List.of(widget.entry.walks);
   late List<FeedLog> _feeds = List.of(widget.entry.feeds);
   bool _busy = false;
+  bool _selecting = false; // 사진 여러 장 선택 삭제 모드
+  final Set<int> _picked = {};
 
   @override
   void dispose() {
@@ -97,6 +99,18 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
     if (mounted && added.isNotEmpty) {
       setState(() => _photos = [..._photos, ...added]);
     }
+  }
+
+  /// 선택한 사진을 한꺼번에 뺀다(저장 버튼을 눌러야 서버에 반영된다).
+  void _deletePicked() {
+    setState(() {
+      _photos = [
+        for (var i = 0; i < _photos.length; i++)
+          if (!_picked.contains(i)) _photos[i],
+      ];
+      _picked.clear();
+      _selecting = false;
+    });
   }
 
   Future<void> _save() async {
@@ -244,7 +258,13 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
                     child: Stack(
                       children: [
                         GestureDetector(
-                          onTap: () => _openPhoto(i),
+                          onTap: _selecting
+                              ? () => setState(
+                                  () => _picked.contains(i)
+                                      ? _picked.remove(i)
+                                      : _picked.add(i),
+                                )
+                              : () => _openPhoto(i),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: Image.memory(
@@ -255,6 +275,31 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
                             ),
                           ),
                         ),
+                        if (_selecting)
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: Icon(
+                              _picked.contains(i)
+                                  ? Icons.check_circle
+                                  : Icons.radio_button_unchecked,
+                              color: _picked.contains(i)
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Colors.white,
+                            ),
+                          ),
+                        if (_selecting && _picked.contains(i))
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Colors.black26,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (!_selecting)
                         Positioned(
                           top: 0,
                           right: 0,
@@ -300,6 +345,44 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
               ],
             ),
           ),
+          if (_photos.length >= 2)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: _selecting
+                  ? Wrap(
+                      spacing: 8,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: _picked.isEmpty ? null : _deletePicked,
+                          icon: const Icon(Icons.delete_outline),
+                          label: Text('선택한 ${_picked.length}장 삭제'),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => setState(() {
+                            _picked
+                              ..clear()
+                              ..addAll(List.generate(_photos.length, (i) => i));
+                          }),
+                          child: const Text('전체 선택'),
+                        ),
+                        TextButton(
+                          onPressed: () => setState(() {
+                            _selecting = false;
+                            _picked.clear();
+                          }),
+                          child: const Text('취소'),
+                        ),
+                      ],
+                    )
+                  : Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () => setState(() => _selecting = true),
+                        icon: const Icon(Icons.checklist),
+                        label: const Text('사진 여러 장 선택'),
+                      ),
+                    ),
+            ),
           if (!widget.isNew && widget.onDelete != null) ...[
             const SizedBox(height: 24),
             OutlinedButton.icon(

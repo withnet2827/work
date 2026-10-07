@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../backup/file_download.dart';
 import '../backup/ics.dart';
+import '../data/change_source.dart';
 import '../data/record_store.dart';
 import '../models/health_record.dart';
 import '../models/place.dart';
@@ -39,10 +40,22 @@ class _HealthSectionState extends State<HealthSection> {
   bool _loading = true;
   String? _error;
 
+  ChangeWatcher? _watcher;
+
   @override
   void initState() {
     super.initState();
     _reload();
+    _watcher = ChangeWatcher(widget.store, () async {
+      await _reload();
+      widget.onChanged();
+    }); // 다른 가족이 기록한 접종·예방약을 바로 반영
+  }
+
+  @override
+  void dispose() {
+    _watcher?.dispose();
+    super.dispose();
   }
 
   Future<void> _reload() async {

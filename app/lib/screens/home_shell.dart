@@ -4,6 +4,7 @@ import '../backup/backup_service.dart';
 import '../backup/file_download.dart';
 import '../backup/file_pick.dart';
 import '../backup/restore_service.dart';
+import '../data/change_source.dart';
 import '../data/diary_store.dart';
 import '../data/record_store.dart';
 import '../data/profile_store.dart';
@@ -65,6 +66,7 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
+  final List<ChangeWatcher> _watchers = [];
   int _tab = 0;
   late final DiaryStore _diaryStore = widget.diaryStore ?? LocalDiaryStore();
   late final VisitStore _visitStore = widget.visitStore ?? LocalVisitStore();
@@ -95,6 +97,30 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     _reload();
+    // 다른 가족이 바꾼 내용을 홈 요약에 바로 반영한다.
+    _watchers.addAll([
+      ChangeWatcher(_visitStore, _loadVisits),
+      ChangeWatcher(_diaryStore, _loadEntries),
+      ChangeWatcher(_healthStore, _loadHealth),
+      ChangeWatcher(widget.store, _loadProfile),
+    ]);
+  }
+
+  @override
+  void dispose() {
+    for (final w in _watchers) {
+      w.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final p = await widget.store.load();
+      if (mounted) setState(() => _profile = p);
+    } catch (_) {
+      // 보조 갱신이라 실패해도 조용히 넘어간다.
+    }
   }
 
   Future<void> _loadVisits() async {
