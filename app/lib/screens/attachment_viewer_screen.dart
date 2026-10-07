@@ -21,7 +21,9 @@ class AttachmentViewerScreen extends StatefulWidget {
 }
 
 class _AttachmentViewerScreenState extends State<AttachmentViewerScreen> {
-  late final PageController _page = PageController(initialPage: widget.initialIndex);
+  late final PageController _page = PageController(
+    initialPage: widget.initialIndex,
+  );
   late List<Attachment> _items = List.of(widget.attachments);
   late int _index = widget.initialIndex;
 
@@ -33,8 +35,14 @@ class _AttachmentViewerScreenState extends State<AttachmentViewerScreen> {
         title: const Text('사진 삭제'),
         content: const Text('이 사진을 삭제할까요?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
-          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('삭제')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('삭제'),
+          ),
         ],
       ),
     );
@@ -64,15 +72,28 @@ class _AttachmentViewerScreenState extends State<AttachmentViewerScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text('${cur.label}${cur.date.isEmpty ? '' : '  ${cur.date}'}  (${_index + 1}/${_items.length})'),
-        actions: [IconButton(onPressed: _delete, icon: const Icon(Icons.delete_outline), tooltip: '삭제')],
+        title: Text(
+          '${cur.label}${cur.date.isEmpty ? '' : '  ${cur.date}'}  (${_index + 1}/${_items.length})',
+        ),
+        actions: [
+          IconButton(
+            onPressed: _delete,
+            icon: const Icon(Icons.delete_outline),
+            tooltip: '삭제',
+          ),
+        ],
       ),
       body: PageView.builder(
         controller: _page,
         itemCount: _items.length,
         onPageChanged: (i) => setState(() => _index = i),
         itemBuilder: (_, i) => InteractiveViewer(
-          child: Center(child: Image.memory(base64Decode(_items[i].photoBase64), fit: BoxFit.contain)),
+          child: Center(
+            child: Image.memory(
+              base64Decode(_items[i].photoBase64),
+              fit: BoxFit.contain,
+            ),
+          ),
         ),
       ),
     );

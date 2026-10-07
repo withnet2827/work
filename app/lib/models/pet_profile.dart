@@ -42,34 +42,33 @@ class PetProfile {
     String? notes,
     String? photoBase64,
     List<Place>? places,
-  }) =>
-      PetProfile(
-        name: name ?? this.name,
-        gender: gender ?? this.gender,
-        neutered: neutered ?? this.neutered,
-        birthDate: birthDate ?? this.birthDate,
-        adoptionDate: adoptionDate ?? this.adoptionDate,
-        breed: breed ?? this.breed,
-        registrationNo: registrationNo ?? this.registrationNo,
-        allergies: allergies ?? this.allergies,
-        notes: notes ?? this.notes,
-        photoBase64: photoBase64 ?? this.photoBase64,
-        places: places ?? this.places,
-      );
+  }) => PetProfile(
+    name: name ?? this.name,
+    gender: gender ?? this.gender,
+    neutered: neutered ?? this.neutered,
+    birthDate: birthDate ?? this.birthDate,
+    adoptionDate: adoptionDate ?? this.adoptionDate,
+    breed: breed ?? this.breed,
+    registrationNo: registrationNo ?? this.registrationNo,
+    allergies: allergies ?? this.allergies,
+    notes: notes ?? this.notes,
+    photoBase64: photoBase64 ?? this.photoBase64,
+    places: places ?? this.places,
+  );
 
   Map<String, dynamic> toMap() => {
-        'name': name,
-        'gender': gender,
-        'neutered': neutered,
-        'birthDate': birthDate,
-        'adoptionDate': adoptionDate,
-        'breed': breed,
-        'registrationNo': registrationNo,
-        'allergies': allergies,
-        'notes': notes,
-        'photoBase64': photoBase64,
-        'places': places.map((e) => e.toMap()).toList(),
-      };
+    'name': name,
+    'gender': gender,
+    'neutered': neutered,
+    'birthDate': birthDate,
+    'adoptionDate': adoptionDate,
+    'breed': breed,
+    'registrationNo': registrationNo,
+    'allergies': allergies,
+    'notes': notes,
+    'photoBase64': photoBase64,
+    'places': places.map((e) => e.toMap()).toList(),
+  };
 
   factory PetProfile.fromMap(Map<String, dynamic> m) {
     final places = <Place>[
@@ -79,12 +78,14 @@ class PetProfile {
     // 이전 버전(병원·미용실 고정 필드) 데이터 이전
     void legacy(String category, String? name, String? phone) {
       if ((name ?? '').isEmpty && (phone ?? '').isEmpty) return;
-      places.add(Place(
-        id: 'legacy-$category',
-        category: category,
-        name: name ?? '',
-        phone: phone ?? '',
-      ));
+      places.add(
+        Place(
+          id: 'legacy-$category',
+          category: category,
+          name: name ?? '',
+          phone: phone ?? '',
+        ),
+      );
     }
 
     if (m['places'] == null) {
@@ -128,7 +129,11 @@ class PetProfile {
     final a = DateTime.tryParse(adoptionDate);
     if (a == null) return null;
     final n = now ?? DateTime.now();
-    final d = DateTime(n.year, n.month, n.day).difference(DateTime(a.year, a.month, a.day)).inDays;
+    final d = DateTime(
+      n.year,
+      n.month,
+      n.day,
+    ).difference(DateTime(a.year, a.month, a.day)).inDays;
     return d < 0 ? null : d + 1;
   }
 }

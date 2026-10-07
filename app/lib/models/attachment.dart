@@ -15,16 +15,16 @@ class Attachment {
   final String date; // yyyy-mm-dd
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'photoBase64': photoBase64,
-        'label': label,
-        'date': date,
-      };
+    'id': id,
+    'photoBase64': photoBase64,
+    'label': label,
+    'date': date,
+  };
 
   factory Attachment.fromMap(Map<String, dynamic> m) => Attachment(
-        id: m['id'] as String? ?? DateTime.now().microsecondsSinceEpoch.toString(),
-        photoBase64: m['photoBase64'] as String? ?? '',
-        label: m['label'] as String? ?? '기타',
-        date: m['date'] as String? ?? '',
-      );
+    id: m['id'] as String? ?? DateTime.now().microsecondsSinceEpoch.toString(),
+    photoBase64: m['photoBase64'] as String? ?? '',
+    label: m['label'] as String? ?? '기타',
+    date: m['date'] as String? ?? '',
+  );
 }

@@ -51,7 +51,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   String? _date(String? v) {
     if (v == null || v.isEmpty) return null;
-    if (!_dateRe.hasMatch(v) || DateTime.tryParse(v) == null) return 'yyyy-mm-dd 형식으로 입력';
+    if (!_dateRe.hasMatch(v) || DateTime.tryParse(v) == null) {
+      return 'yyyy-mm-dd 형식으로 입력';
+    }
     return null;
   }
 
@@ -70,7 +72,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   }
 
   Future<void> _pickPhoto(ImageSource source) async {
-    final x = await ImagePicker().pickImage(source: source, maxWidth: 800, imageQuality: 80);
+    final x = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 800,
+      imageQuality: 80,
+    );
     if (x == null) return;
     final bytes = await x.readAsBytes();
     if (mounted) setState(() => _photo = base64Encode(bytes));
@@ -117,22 +123,30 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   void _save() {
     if (!_form.currentState!.validate()) return;
     String t(String k) => _c[k]!.text.trim();
-    Navigator.of(context).pop(widget.initial.copyWith(
-      name: t('name'),
-      gender: _gender,
-      neutered: _neutered,
-      birthDate: t('birthDate'),
-      adoptionDate: t('adoptionDate'),
-      breed: t('breed'),
-      registrationNo: t('registrationNo'),
-      allergies: t('allergies'),
-      notes: t('notes'),
-      photoBase64: _photo,
-    ));
+    Navigator.of(context).pop(
+      widget.initial.copyWith(
+        name: t('name'),
+        gender: _gender,
+        neutered: _neutered,
+        birthDate: t('birthDate'),
+        adoptionDate: t('adoptionDate'),
+        breed: t('breed'),
+        registrationNo: t('registrationNo'),
+        allergies: t('allergies'),
+        notes: t('notes'),
+        photoBase64: _photo,
+      ),
+    );
   }
 
-  Widget _field(String key, String label,
-      {bool date = false, int lines = 1, TextInputType? type, bool required = false}) {
+  Widget _field(
+    String key,
+    String label, {
+    bool date = false,
+    int lines = 1,
+    TextInputType? type,
+    bool required = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
@@ -171,11 +185,17 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 onTap: _photoMenu,
                 child: Stack(
                   children: [
-                    PetAvatar(profile: widget.initial.copyWith(photoBase64: _photo), radius: 56),
+                    PetAvatar(
+                      profile: widget.initial.copyWith(photoBase64: _photo),
+                      radius: 56,
+                    ),
                     const Positioned(
                       right: 0,
                       bottom: 0,
-                      child: CircleAvatar(radius: 16, child: Icon(Icons.camera_alt, size: 18)),
+                      child: CircleAvatar(
+                        radius: 16,
+                        child: Icon(Icons.camera_alt, size: 18),
+                      ),
                     ),
                   ],
                 ),
@@ -185,7 +205,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             _field('name', '이름', required: true),
             DropdownButtonFormField<String>(
               initialValue: _gender.isEmpty ? null : _gender,
-              decoration: const InputDecoration(labelText: '성별', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: '성별',
+                border: OutlineInputBorder(),
+              ),
               items: const [
                 DropdownMenuItem(value: '수컷', child: Text('수컷')),
                 DropdownMenuItem(value: '암컷', child: Text('암컷')),

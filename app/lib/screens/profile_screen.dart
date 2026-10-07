@@ -47,7 +47,11 @@ class ProfileScreen extends StatelessWidget {
             title: Text(label, style: text.labelMedium),
             subtitle: Text(value.isEmpty ? '-' : value, style: text.bodyLarge),
           ),
-        FilledButton.icon(onPressed: onEdit, icon: const Icon(Icons.edit), label: const Text('프로필 수정')),
+        FilledButton.icon(
+          onPressed: onEdit,
+          icon: const Icon(Icons.edit),
+          label: const Text('프로필 수정'),
+        ),
         const Divider(height: 40),
         Row(
           children: [
@@ -64,20 +68,27 @@ class ProfileScreen extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: 16),
             child: Text('등록된 장소가 없습니다. 추가 버튼으로 병원·미용실을 등록하세요.'),
           ),
-        for (final p in profile.places) _PlaceCard(
-          place: p,
-          onEdit: () => _edit(context, p),
-          onDelete: () => _delete(context, p),
-          onChanged: (np) => onChanged(profile.copyWith(places: [for (final e in profile.places) e.id == np.id ? np : e])),
-        ),
+        for (final p in profile.places)
+          _PlaceCard(
+            place: p,
+            onEdit: () => _edit(context, p),
+            onDelete: () => _delete(context, p),
+            onChanged: (np) => onChanged(
+              profile.copyWith(
+                places: [
+                  for (final e in profile.places) e.id == np.id ? np : e,
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }
 
   Future<void> _add(BuildContext context) async {
-    final r = await Navigator.of(context).push<Place>(
-      MaterialPageRoute(builder: (_) => const PlaceEditScreen()),
-    );
+    final r = await Navigator.of(
+      context,
+    ).push<Place>(MaterialPageRoute(builder: (_) => const PlaceEditScreen()));
     if (r != null) onChanged(profile.copyWith(places: [...profile.places, r]));
   }
 
@@ -86,7 +97,11 @@ class ProfileScreen extends StatelessWidget {
       MaterialPageRoute(builder: (_) => PlaceEditScreen(initial: p)),
     );
     if (r != null) {
-      onChanged(profile.copyWith(places: [for (final e in profile.places) e.id == p.id ? r : e]));
+      onChanged(
+        profile.copyWith(
+          places: [for (final e in profile.places) e.id == p.id ? r : e],
+        ),
+      );
     }
   }
 
@@ -97,13 +112,23 @@ class ProfileScreen extends StatelessWidget {
         title: Text('${p.name} 삭제'),
         content: const Text('이 장소를 목록에서 삭제할까요?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
-          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('삭제')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('삭제'),
+          ),
         ],
       ),
     );
     if (ok == true) {
-      onChanged(profile.copyWith(places: profile.places.where((e) => e.id != p.id).toList()));
+      onChanged(
+        profile.copyWith(
+          places: profile.places.where((e) => e.id != p.id).toList(),
+        ),
+      );
     }
   }
 }
@@ -124,25 +149,32 @@ class _PlaceCard extends StatelessWidget {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (c) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(
-            leading: const Icon(Icons.photo_library_outlined),
-            title: const Text('앨범에서 선택 (여러 장 가능)'),
-            onTap: () => Navigator.pop(c, ImageSource.gallery),
-          ),
-          ListTile(
-            leading: const Icon(Icons.photo_camera_outlined),
-            title: const Text('카메라로 촬영'),
-            onTap: () => Navigator.pop(c, ImageSource.camera),
-          ),
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('앨범에서 선택 (여러 장 가능)'),
+              onTap: () => Navigator.pop(c, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('카메라로 촬영'),
+              onTap: () => Navigator.pop(c, ImageSource.camera),
+            ),
+          ],
+        ),
       ),
     );
     if (source == null || !context.mounted) return;
     final picker = ImagePicker();
     final List<XFile> files;
     if (source == ImageSource.camera) {
-      final x = await picker.pickImage(source: source, maxWidth: 1280, imageQuality: 70);
+      final x = await picker.pickImage(
+        source: source,
+        maxWidth: 1280,
+        imageQuality: 70,
+      );
       files = [?x];
     } else {
       files = await picker.pickMultiImage(maxWidth: 1280, imageQuality: 70);
@@ -155,12 +187,14 @@ class _PlaceCard extends StatelessWidget {
     final added = <Attachment>[];
     for (final f in files) {
       final bytes = await f.readAsBytes();
-      added.add(Attachment(
-        id: '${DateTime.now().microsecondsSinceEpoch}-${added.length}',
-        photoBase64: base64Encode(bytes),
-        label: meta.$1,
-        date: meta.$2,
-      ));
+      added.add(
+        Attachment(
+          id: '${DateTime.now().microsecondsSinceEpoch}-${added.length}',
+          photoBase64: base64Encode(bytes),
+          label: meta.$1,
+          date: meta.$2,
+        ),
+      );
     }
     onChanged(place.copyWith(attachments: [...place.attachments, ...added]));
   }
@@ -180,8 +214,14 @@ class _PlaceCard extends StatelessWidget {
             children: [
               DropdownButtonFormField<String>(
                 initialValue: label,
-                decoration: const InputDecoration(labelText: '구분', border: OutlineInputBorder()),
-                items: [for (final l in Attachment.labels) DropdownMenuItem(value: l, child: Text(l))],
+                decoration: const InputDecoration(
+                  labelText: '구분',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final l in Attachment.labels)
+                    DropdownMenuItem(value: l, child: Text(l)),
+                ],
                 onChanged: (v) => label = v ?? label,
               ),
               const SizedBox(height: 12),
@@ -196,16 +236,24 @@ class _PlaceCard extends StatelessWidget {
                     lastDate: now,
                   );
                   if (d != null) {
-                    setState(() => date =
-                        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}');
+                    setState(
+                      () => date =
+                          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
+                    );
                   }
                 },
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c), child: const Text('취소')),
-            TextButton(onPressed: () => Navigator.pop(c, (label, date)), child: const Text('추가')),
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(c, (label, date)),
+              child: const Text('추가'),
+            ),
           ],
         ),
       ),
@@ -213,18 +261,25 @@ class _PlaceCard extends StatelessWidget {
   }
 
   void _openViewer(BuildContext context, int index) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => AttachmentViewerScreen(
-        attachments: place.attachments,
-        initialIndex: index,
-        onDelete: (a) => onChanged(
-          place.copyWith(attachments: place.attachments.where((e) => e.id != a.id).toList()),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AttachmentViewerScreen(
+          attachments: place.attachments,
+          initialIndex: index,
+          onDelete: (a) => onChanged(
+            place.copyWith(
+              attachments: place.attachments
+                  .where((e) => e.id != a.id)
+                  .toList(),
+            ),
+          ),
         ),
       ),
-    ));
+    );
   }
 
-  Future<void> _open(Uri uri) => launchUrl(uri, mode: LaunchMode.externalApplication);
+  Future<void> _open(Uri uri) =>
+      launchUrl(uri, mode: LaunchMode.externalApplication);
 
   @override
   Widget build(BuildContext context) {
@@ -238,11 +293,22 @@ class _PlaceCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Chip(label: Text(place.category), visualDensity: VisualDensity.compact),
+                Chip(
+                  label: Text(place.category),
+                  visualDensity: VisualDensity.compact,
+                ),
                 const SizedBox(width: 8),
                 Expanded(child: Text(place.name, style: text.titleMedium)),
-                IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined), tooltip: '수정'),
-                IconButton(onPressed: onDelete, icon: const Icon(Icons.delete_outline), tooltip: '삭제'),
+                IconButton(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: '수정',
+                ),
+                IconButton(
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: '삭제',
+                ),
               ],
             ),
             if (place.phone.isNotEmpty) Text('전화  ${place.phone}'),
@@ -267,7 +333,12 @@ class _PlaceCard extends StatelessWidget {
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: Image.memory(base64Decode(a.photoBase64), width: 84, height: 84, fit: BoxFit.cover),
+                            child: Image.memory(
+                              base64Decode(a.photoBase64),
+                              width: 84,
+                              height: 84,
+                              fit: BoxFit.cover,
+                            ),
                           ),
                           Positioned(
                             left: 0,
@@ -276,9 +347,14 @@ class _PlaceCard extends StatelessWidget {
                             child: Container(
                               color: Colors.black54,
                               padding: const EdgeInsets.symmetric(vertical: 2),
-                              child: Text(a.label,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(color: Colors.white, fontSize: 11)),
+                              child: Text(
+                                a.label,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -294,22 +370,33 @@ class _PlaceCard extends StatelessWidget {
                 TextButton.icon(
                   onPressed: () => _addPhotos(context),
                   icon: const Icon(Icons.add_a_photo_outlined, size: 18),
-                  label: Text(place.attachments.isEmpty ? '사진 첨부' : '사진 ${place.attachments.length}장 · 추가'),
+                  label: Text(
+                    place.attachments.isEmpty
+                        ? '사진 첨부'
+                        : '사진 ${place.attachments.length}장 · 추가',
+                  ),
                 ),
                 if (place.phone.isNotEmpty)
                   TextButton.icon(
-                    onPressed: () => _open(Uri(scheme: 'tel', path: place.phone)),
+                    onPressed: () =>
+                        _open(Uri(scheme: 'tel', path: place.phone)),
                     icon: const Icon(Icons.call, size: 18),
                     label: const Text('전화'),
                   ),
                 if (q.isNotEmpty) ...[
                   TextButton.icon(
-                    onPressed: () => _open(Uri.https('map.naver.com', '/p/search/$q')),
+                    onPressed: () =>
+                        _open(Uri.https('map.naver.com', '/p/search/$q')),
                     icon: const Icon(Icons.map_outlined, size: 18),
                     label: const Text('네이버 지도'),
                   ),
                   TextButton.icon(
-                    onPressed: () => _open(Uri.https('www.google.com', '/maps/search/', {'api': '1', 'query': q})),
+                    onPressed: () => _open(
+                      Uri.https('www.google.com', '/maps/search/', {
+                        'api': '1',
+                        'query': q,
+                      }),
+                    ),
                     icon: const Icon(Icons.place_outlined, size: 18),
                     label: const Text('구글 지도'),
                   ),

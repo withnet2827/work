@@ -29,15 +29,19 @@ class _PlaceEditScreenState extends State<PlaceEditScreen> {
 
   void _save() {
     if (!_form.currentState!.validate()) return;
-    Navigator.of(context).pop(Place(
-      id: widget.initial?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
-      attachments: widget.initial?.attachments ?? const [],
-      category: _category,
-      name: _name.text.trim(),
-      phone: _phone.text.trim(),
-      address: _address.text.trim(),
-      memo: _memo.text.trim(),
-    ));
+    Navigator.of(context).pop(
+      Place(
+        id:
+            widget.initial?.id ??
+            DateTime.now().microsecondsSinceEpoch.toString(),
+        attachments: widget.initial?.attachments ?? const [],
+        category: _category,
+        name: _name.text.trim(),
+        phone: _phone.text.trim(),
+        address: _address.text.trim(),
+        memo: _memo.text.trim(),
+      ),
+    );
   }
 
   @override
@@ -55,21 +59,34 @@ class _PlaceEditScreenState extends State<PlaceEditScreen> {
           children: [
             DropdownButtonFormField<String>(
               initialValue: _category,
-              decoration: const InputDecoration(labelText: '구분', border: OutlineInputBorder()),
-              items: [for (final c in Place.categories) DropdownMenuItem(value: c, child: Text(c))],
+              decoration: const InputDecoration(
+                labelText: '구분',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final c in Place.categories)
+                  DropdownMenuItem(value: c, child: Text(c)),
+              ],
               onChanged: (v) => _category = v ?? _category,
             ),
             gap,
             TextFormField(
               controller: _name,
-              decoration: const InputDecoration(labelText: '이름', border: OutlineInputBorder()),
-              validator: (v) => (v == null || v.trim().isEmpty) ? '필수 항목입니다' : null,
+              decoration: const InputDecoration(
+                labelText: '이름',
+                border: OutlineInputBorder(),
+              ),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? '필수 항목입니다' : null,
             ),
             gap,
             TextFormField(
               controller: _phone,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: '전화', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: '전화',
+                border: OutlineInputBorder(),
+              ),
             ),
             gap,
             TextFormField(

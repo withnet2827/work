@@ -25,37 +25,43 @@ class Place {
   /// 지도 검색어: 주소가 있으면 주소, 없으면 이름.
   String get mapQuery => address.isNotEmpty ? address : name;
 
-  Place copyWith({String? category, String? name, String? phone, String? address, String? memo, List<Attachment>? attachments}) =>
-      Place(
-        id: id,
-        category: category ?? this.category,
-        name: name ?? this.name,
-        phone: phone ?? this.phone,
-        address: address ?? this.address,
-        memo: memo ?? this.memo,
-        attachments: attachments ?? this.attachments,
-      );
+  Place copyWith({
+    String? category,
+    String? name,
+    String? phone,
+    String? address,
+    String? memo,
+    List<Attachment>? attachments,
+  }) => Place(
+    id: id,
+    category: category ?? this.category,
+    name: name ?? this.name,
+    phone: phone ?? this.phone,
+    address: address ?? this.address,
+    memo: memo ?? this.memo,
+    attachments: attachments ?? this.attachments,
+  );
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'category': category,
-        'name': name,
-        'phone': phone,
-        'address': address,
-        'memo': memo,
-        'attachments': attachments.map((e) => e.toMap()).toList(),
-      };
+    'id': id,
+    'category': category,
+    'name': name,
+    'phone': phone,
+    'address': address,
+    'memo': memo,
+    'attachments': attachments.map((e) => e.toMap()).toList(),
+  };
 
   factory Place.fromMap(Map<String, dynamic> m) => Place(
-        id: m['id'] as String? ?? DateTime.now().microsecondsSinceEpoch.toString(),
-        category: m['category'] as String? ?? '기타',
-        name: m['name'] as String? ?? '',
-        phone: m['phone'] as String? ?? '',
-        address: m['address'] as String? ?? '',
-        memo: m['memo'] as String? ?? '',
-        attachments: [
-          for (final e in (m['attachments'] as List? ?? const []))
-            Attachment.fromMap(Map<String, dynamic>.from(e as Map)),
-        ],
-      );
+    id: m['id'] as String? ?? DateTime.now().microsecondsSinceEpoch.toString(),
+    category: m['category'] as String? ?? '기타',
+    name: m['name'] as String? ?? '',
+    phone: m['phone'] as String? ?? '',
+    address: m['address'] as String? ?? '',
+    memo: m['memo'] as String? ?? '',
+    attachments: [
+      for (final e in (m['attachments'] as List? ?? const []))
+        Attachment.fromMap(Map<String, dynamic>.from(e as Map)),
+    ],
+  );
 }
