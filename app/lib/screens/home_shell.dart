@@ -2,16 +2,22 @@ import 'package:flutter/material.dart';
 
 import '../backup/backup_service.dart';
 import '../backup/file_download.dart';
+import '../backup/file_pick.dart';
+import '../backup/restore_service.dart';
 import '../data/diary_store.dart';
+import '../data/record_store.dart';
 import '../data/profile_store.dart';
 import '../data/visit_store.dart';
 import '../models/diary_entry.dart';
+import '../models/health_record.dart';
+import '../models/weight_log.dart';
 import '../models/visit.dart';
 import '../models/week_stats.dart';
 import '../models/pet_profile.dart';
 import '../widgets_pet_avatar.dart';
 import 'diary_screen.dart';
 import 'profile_edit_screen.dart';
+import 'health_screen.dart';
 import 'visit_actions.dart';
 import 'week_stats_card.dart';
 import 'visits_screen.dart';
@@ -43,11 +49,15 @@ class HomeShell extends StatefulWidget {
     required this.store,
     this.diaryStore,
     this.visitStore,
+    this.weightStore,
+    this.healthStore,
     this.familyInfo,
   });
   final ProfileStore store;
   final DiaryStore? diaryStore;
   final VisitStore? visitStore;
+  final RecordStore<WeightLog>? weightStore;
+  final RecordStore<HealthRecord>? healthStore;
   final FamilyInfo? familyInfo;
 
   @override
@@ -58,6 +68,24 @@ class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   late final DiaryStore _diaryStore = widget.diaryStore ?? LocalDiaryStore();
   late final VisitStore _visitStore = widget.visitStore ?? LocalVisitStore();
+  late final RecordStore<WeightLog> _weightStore =
+      widget.weightStore ??
+      LocalRecordStore<WeightLog>(
+        key: 'weights_v1',
+        toMap: (e) => e.toMap(),
+        fromMap: WeightLog.fromMap,
+        idOf: (e) => e.id,
+      );
+  late final RecordStore<HealthRecord> _healthStore =
+      widget.healthStore ??
+      LocalRecordStore<HealthRecord>(
+        key: 'health_v1',
+        toMap: (e) => e.toMap(),
+        fromMap: HealthRecord.fromMap,
+        idOf: (e) => e.id,
+      );
+  List<HealthRecord> _health = [];
+  int _healthNonce = 0; // 홈에서 접종 일정을 눌러 들어올 때마다 올려 건강 탭을 접종 화면으로 연다
   List<Visit> _visits = [];
   List<DiaryEntry> _entries = [];
   PetProfile _profile = const PetProfile();
@@ -81,6 +109,15 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
+  Future<void> _loadHealth() async {
+    try {
+      final h = await _healthStore.load();
+      if (mounted) setState(() => _health = h);
+    } catch (_) {
+      // 홈의 일정 표시는 보조 정보라 실패해도 건강 탭에서 오류를 보여준다.
+    }
+  }
+
   Future<void> _loadEntries() async {
     try {
       final e = await _diaryStore.load();
@@ -93,6 +130,7 @@ class _HomeShellState extends State<HomeShell> {
   Future<void> _reload() async {
     _loadVisits();
     _loadEntries();
+    _loadHealth();
     try {
       final p = await widget.store.load();
       if (!mounted) return;
@@ -125,6 +163,106 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
+  Future<void> _restore() async {
+    final messenger = ScaffoldMessenger.of(context);
+    BackupPreview preview;
+    try {
+      final text = await pickTextFile();
+      if (text == null) return; // 선택 취소
+      preview = parseBackup(text);
+    } on FormatException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('파일을 읽지 못했습니다. $e')));
+      return;
+    }
+    if (!mounted) return;
+    var includeProfile = false;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, setD) => AlertDialog(
+          title: const Text('백업 복원'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (preview.exportedAt.isNotEmpty)
+                Text(
+                  '백업 시각: ${preview.exportedAt.split('.').first.replaceFirst('T', ' ')}',
+                ),
+              const SizedBox(height: 8),
+              Text(
+                '일기 ${preview.diary}편 · 방문 ${preview.visits}건\n체중 ${preview.weights}건 · 접종·예방약 ${preview.health}건',
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '같은 기록은 백업 내용으로 덮어쓰고, 없는 기록은 추가해요. 지금 있는 기록을 지우지는 않아요.',
+              ),
+              if (preview.hasProfile)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: const Text('프로필도 백업 내용으로 바꾸기'),
+                  subtitle: const Text('현재 프로필이 덮어씌워져요'),
+                  value: includeProfile,
+                  onChanged: (v) => setD(() => includeProfile = v ?? false),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: preview.total == 0 && !includeProfile
+                  ? null
+                  : () => Navigator.pop(c, true),
+              child: const Text('복원'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('복원 중입니다. 잠시만 기다려 주세요...'),
+        duration: Duration(minutes: 5),
+      ),
+    );
+    try {
+      final r = await restoreBackup(
+        preview: preview,
+        includeProfile: includeProfile,
+        saveProfile: (p) async => _update(p),
+        diaryStore: _diaryStore,
+        visitStore: _visitStore,
+        weightStore: _weightStore,
+        healthStore: _healthStore,
+      );
+      await _loadVisits();
+      await _loadEntries();
+      await _loadHealth();
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              '복원했어요. 일기 ${r.diary} · 방문 ${r.visits} · 체중 ${r.weights} · 접종 ${r.health}'
+              '${r.skipped > 0 ? ' (읽지 못한 항목 ${r.skipped}건 건너뜀)' : ''}',
+            ),
+          ),
+        );
+    } catch (e) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('복원하지 못했습니다. $e')));
+    }
+  }
+
   void _showBackup() {
     showModalBottomSheet<void>(
       context: context,
@@ -143,6 +281,8 @@ class _HomeShellState extends State<HomeShell> {
                     profile: _profile,
                     diaryStore: _diaryStore,
                     visitStore: _visitStore,
+                    weightStore: _weightStore,
+                    healthStore: _healthStore,
                   );
                   await downloadTextFile(
                     backupFileName('chio-backup', 'json'),
@@ -166,6 +306,16 @@ class _HomeShellState extends State<HomeShell> {
                     mime: 'text/csv',
                   );
                 });
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.restore),
+              title: const Text('백업 파일에서 복원'),
+              subtitle: const Text('내려받은 JSON 백업을 현재 기록에 합쳐요 (기존 기록은 지우지 않아요)'),
+              onTap: () {
+                Navigator.pop(c);
+                _restore();
               },
             ),
           ],
@@ -196,11 +346,6 @@ class _HomeShellState extends State<HomeShell> {
           ],
         ),
         actions: [
-          IconButton(
-            onPressed: _showBackup,
-            icon: const Icon(Icons.download_outlined),
-            tooltip: '백업·내보내기',
-          ),
           TextButton(
             onPressed: () => Navigator.pop(c),
             child: const Text('닫기'),
@@ -265,6 +410,11 @@ class _HomeShellState extends State<HomeShell> {
         upcoming: upcomingVisits(_visits, todayString()),
         actions: _visitActions,
         stats: WeekStats.from(_entries, DateTime.now()),
+        dueHealth: HealthRecord.due(_health, DateTime.now(), withinDays: 14),
+        onOpenHealth: () => setState(() {
+          _healthNonce++;
+          _tab = 3;
+        }),
       ),
       DiaryScreen(
         store: _diaryStore,
@@ -280,12 +430,25 @@ class _HomeShellState extends State<HomeShell> {
         onAddPlace: (p) =>
             _update(_profile.copyWith(places: [..._profile.places, p])),
       ),
+      HealthScreen(
+        key: ValueKey('health-$_healthNonce'),
+        initialTab: _healthNonce == 0 ? 0 : 1,
+        weightStore: _weightStore,
+        healthStore: _healthStore,
+        authorName: authorName,
+        onHealthChanged: _loadHealth,
+      ),
       ProfileScreen(profile: _profile, onEdit: _edit, onChanged: _update),
     ];
     return Scaffold(
       appBar: AppBar(
         title: Text('${_profile.name} 데일리'),
         actions: [
+          IconButton(
+            onPressed: _showBackup,
+            icon: const Icon(Icons.download_outlined),
+            tooltip: '백업·복원',
+          ),
           if (widget.familyInfo != null) ...[
             IconButton(
               onPressed: _reload,
@@ -324,6 +487,11 @@ class _HomeShellState extends State<HomeShell> {
             label: '병원·미용',
           ),
           NavigationDestination(
+            icon: Icon(Icons.favorite_border),
+            selectedIcon: Icon(Icons.favorite),
+            label: '건강',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.pets_outlined),
             selectedIcon: Icon(Icons.pets),
             label: '프로필',
@@ -340,11 +508,15 @@ class _HomeTab extends StatelessWidget {
     required this.upcoming,
     required this.actions,
     required this.stats,
+    required this.dueHealth,
+    required this.onOpenHealth,
   });
   final PetProfile profile;
   final List<Visit> upcoming;
   final VisitActions actions;
   final WeekStats stats;
+  final List<HealthRecord> dueHealth;
+  final VoidCallback onOpenHealth;
 
   @override
   Widget build(BuildContext context) {
@@ -371,6 +543,28 @@ class _HomeTab extends StatelessWidget {
           ),
         ),
         WeekStatsCard(stats: stats),
+        if (dueHealth.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 16, bottom: 4),
+            child: Text(
+              '접종·예방약 일정',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          for (final r in dueHealth.take(3))
+            Card(
+              child: ListTile(
+                onTap: onOpenHealth,
+                leading: const Icon(Icons.vaccines_outlined),
+                title: Text(r.title),
+                subtitle: Text('예정 ${r.nextDate}'),
+                trailing: Text(
+                  ddayText(r.nextDate, DateTime.now()),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            ),
+        ],
         if (upcoming.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.only(top: 16, bottom: 4),

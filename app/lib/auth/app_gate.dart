@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 
 import '../data/firestore_diary_store.dart';
 import '../data/firestore_profile_store.dart';
+import '../data/firestore_record_store.dart';
 import '../data/firestore_visit_store.dart';
+import '../models/health_record.dart';
+import '../models/weight_log.dart';
 import '../screens/home_shell.dart';
 import 'family.dart';
 import 'family_setup_screen.dart';
@@ -85,6 +88,20 @@ class _AppGateState extends State<AppGate> {
           store: FirestoreProfileStore(family.id),
           diaryStore: FirestoreDiaryStore(family.id),
           visitStore: FirestoreVisitStore(family.id),
+          weightStore: FirestoreRecordStore<WeightLog>(
+            familyId: family.id,
+            collection: 'weights',
+            toMap: (e) => e.toMap(),
+            fromMap: WeightLog.fromMap,
+            idOf: (e) => e.id,
+          ),
+          healthStore: FirestoreRecordStore<HealthRecord>(
+            familyId: family.id,
+            collection: 'health',
+            toMap: (e) => e.toMap(),
+            fromMap: HealthRecord.fromMap,
+            idOf: (e) => e.id,
+          ),
           familyInfo: FamilyInfo(
             name: family.name,
             inviteCode: family.inviteCode,

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../backup/file_download.dart';
+import '../backup/ics.dart';
+
 import '../data/visit_store.dart';
 import '../models/place.dart';
 import '../models/visit.dart';
@@ -113,6 +116,33 @@ class VisitActions {
     }
   }
 
+  /// 예약을 폰 캘린더 일정(.ics)으로 내려받는다. 캘린더 앱이 하루 전·1시간 전에 알려 준다.
+  Future<void> addToCalendar(BuildContext context, Visit v) async {
+    try {
+      await downloadTextFile(
+        'chio-${v.date}.ics',
+        buildIcs(
+          title:
+              '치오 ${v.type} 예약${v.placeName.isEmpty ? '' : ' - ${v.placeName}'}',
+          date: v.date,
+          time: v.time,
+          description: [
+            v.detail,
+            v.memo,
+          ].where((e) => e.isNotEmpty).join(' / '),
+          location: v.placeName,
+          uid: 'visit-${v.id}-${v.date}',
+        ),
+        mime: 'text/calendar',
+      );
+      if (!context.mounted) return;
+      _toast(context, '일정 파일을 내려받았어요. 파일을 열면 캘린더에 추가돼요.');
+    } catch (e) {
+      if (!context.mounted) return;
+      _toast(context, '일정 파일을 만들지 못했습니다. $e');
+    }
+  }
+
   /// 눌렀을 때 열리는 확인 창: 내용 + 수정·삭제·(예약이면) 완료 처리.
   Future<void> showSheet(BuildContext context, Visit v) {
     final text = Theme.of(context).textTheme;
@@ -185,6 +215,12 @@ class VisitActions {
                       },
                       icon: const Icon(Icons.check),
                       label: const Text('완료 처리'),
+                    ),
+                  if (v.isUpcoming)
+                    OutlinedButton.icon(
+                      onPressed: () => addToCalendar(context, v),
+                      icon: const Icon(Icons.event),
+                      label: const Text('캘린더에 추가'),
                     ),
                   OutlinedButton.icon(
                     onPressed: () async {

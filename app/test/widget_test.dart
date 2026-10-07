@@ -4,6 +4,11 @@ import 'package:chio_daily/main.dart';
 import 'package:chio_daily/models/attachment.dart';
 import 'package:chio_daily/models/visit.dart';
 import 'package:chio_daily/data/visit_store.dart';
+import 'package:chio_daily/backup/ics.dart';
+import 'package:chio_daily/backup/restore_service.dart';
+import 'package:chio_daily/data/record_store.dart';
+import 'package:chio_daily/models/health_record.dart';
+import 'package:chio_daily/models/weight_log.dart';
 import 'package:chio_daily/backup/backup_service.dart';
 
 import 'dart:convert';
@@ -536,6 +541,321 @@ void main() {
     expect(find.text('최근 7일'), findsOneWidget);
     expect(find.textContaining('산책 1회 · 총 25분'), findsOneWidget);
     expect(find.textContaining('이상 1'), findsOneWidget);
+  });
+
+  LocalRecordStore<WeightLog> weightStore0() => LocalRecordStore<WeightLog>(
+    key: 'weights_v1',
+    toMap: (e) => e.toMap(),
+    fromMap: WeightLog.fromMap,
+    idOf: (e) => e.id,
+  );
+  LocalRecordStore<HealthRecord> healthStore0() =>
+      LocalRecordStore<HealthRecord>(
+        key: 'health_v1',
+        toMap: (e) => e.toMap(),
+        fromMap: HealthRecord.fromMap,
+        idOf: (e) => e.id,
+      );
+
+  test('체중: 변화량·표시 형식', () {
+    final asc = [
+      const WeightLog(id: 'a', date: '2026-09-01', kg: 5.0),
+      const WeightLog(id: 'b', date: '2026-10-01', kg: 5.35),
+    ];
+    expect(WeightLog.latestChange(asc), 0.35);
+    expect(WeightLog.latestChange(asc.sublist(0, 1)), isNull);
+    expect(WeightLog.fmt(5.0), '5');
+    expect(WeightLog.fmt(5.25), '5.25');
+    expect(WeightLog.fmt(5.3), '5.3');
+  });
+
+  test('접종·예방약: 다음 일정 제안과 임박/지연 판정', () {
+    expect(HealthRecord.suggestNext('종합백신', '2026-10-07'), '2027-10-07');
+    expect(HealthRecord.suggestNext('심장사상충', '2026-10-07'), '2026-11-06');
+    expect(HealthRecord.suggestNext('기타', '2026-10-07'), '');
+    final today = DateTime(2026, 10, 7);
+    final all = [
+      // 같은 흐름의 옛 기록은 최신 기록에 가려진다
+      const HealthRecord(
+        id: '1',
+        kind: '심장사상충',
+        date: '2026-08-01',
+        nextDate: '2026-09-01',
+      ),
+      const HealthRecord(
+        id: '2',
+        kind: '심장사상충',
+        date: '2026-09-05',
+        nextDate: '2026-10-05',
+      ), // 지연
+      const HealthRecord(
+        id: '3',
+        kind: '종합백신',
+        name: '5종 2차',
+        date: '2026-09-20',
+        nextDate: '2026-10-20',
+      ), // 임박
+      const HealthRecord(
+        id: '4',
+        kind: '광견병',
+        date: '2026-01-01',
+        nextDate: '2027-01-01',
+      ), // 먼 일정
+      const HealthRecord(id: '5', kind: '코로나', date: '2026-01-01'), // 예정일 없음
+    ];
+    final due = HealthRecord.due(all, today, withinDays: 30);
+    expect(due.map((e) => e.id), ['2', '3']);
+    expect(HealthRecord.due(all, today, withinDays: 3).map((e) => e.id), ['2']);
+  });
+
+  test('로컬 기록 저장소: 저장·덮어쓰기·삭제', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = weightStore0();
+    await store.save(const WeightLog(id: 'a', date: '2026-10-01', kg: 5));
+    await store.save(const WeightLog(id: 'b', date: '2026-10-02', kg: 5.1));
+    await store.save(
+      const WeightLog(id: 'a', date: '2026-10-01', kg: 5.2),
+    ); // 덮어쓰기
+    var list = await store.load();
+    expect(list.length, 2);
+    expect(list.firstWhere((e) => e.id == 'a').kg, 5.2);
+    await store.delete('b');
+    list = await store.load();
+    expect(list.single.id, 'a');
+  });
+
+  test('캘린더 일정 파일(.ics)', () {
+    final timed = buildIcs(
+      title: '치오 병원 예약, 보듬',
+      date: '2026-10-20',
+      time: '14:30',
+      description: '메모;테스트',
+      uid: 'v1',
+      now: DateTime.utc(2026, 10, 7, 1, 2, 3),
+    );
+    expect(timed, contains('BEGIN:VCALENDAR'));
+    expect(timed, contains('DTSTART:20261020T143000'));
+    expect(timed, contains('DTEND:20261020T153000'));
+    expect(timed, contains(r'SUMMARY:치오 병원 예약\, 보듬'));
+    expect(timed, contains(r'DESCRIPTION:메모\;테스트'));
+    expect(timed, contains('TRIGGER:-P1D'));
+    expect(timed, contains('TRIGGER:-PT1H'));
+    expect(timed, contains('DTSTAMP:20261007T010203Z'));
+    expect(timed.contains('\r\n'), isTrue);
+    final allDay = buildIcs(
+      title: '접종',
+      date: '2026-10-20',
+      uid: 'h1',
+      now: DateTime.utc(2026, 10, 7),
+    );
+    expect(allDay, contains('DTSTART;VALUE=DATE:20261020'));
+    expect(allDay, contains('DTEND;VALUE=DATE:20261021'));
+    expect(allDay, isNot(contains('TRIGGER:-PT1H')));
+    expect(
+      () => buildIcs(title: 'x', date: '잘못', uid: 'u'),
+      throwsArgumentError,
+    );
+  });
+
+  test('백업 → 복원 왕복(일기·방문·체중·접종·프로필)', () async {
+    SharedPreferences.setMockInitialValues({});
+    final diary = LocalDiaryStore();
+    final visits = LocalVisitStore();
+    final weights = weightStore0();
+    final health = healthStore0();
+    await diary.save(
+      const DiaryEntry(
+        id: 'd1',
+        date: '2026-10-01',
+        body: '산책',
+        photos: ['AAAA'],
+        walks: [WalkLog(time: '07:00', minutes: 20, poop: '정상')],
+      ),
+    );
+    await diary.addComment(
+      'd1',
+      const DiaryComment(
+        id: 'c1',
+        author: '엄마',
+        authorId: 'u1',
+        text: '굿',
+        createdAt: 1,
+      ),
+    );
+    await diary.setReaction('d1', 'u1', '엄마', '❤️');
+    await visits.save(
+      Visit(
+        id: 'v1',
+        date: '2026-10-02',
+        placeName: '병원',
+        amount: 1000,
+        photos: const [Attachment(id: 'p', photoBase64: 'BBBB', label: '영수증')],
+      ),
+    );
+    await weights.save(const WeightLog(id: 'w1', date: '2026-10-03', kg: 5.2));
+    await health.save(
+      const HealthRecord(
+        id: 'h1',
+        kind: '종합백신',
+        date: '2026-10-04',
+        nextDate: '2027-10-04',
+      ),
+    );
+    final json = await buildBackupJson(
+      profile: const PetProfile(name: '치오', registrationNo: '123'),
+      diaryStore: diary,
+      visitStore: visits,
+      weightStore: weights,
+      healthStore: health,
+    );
+
+    // 새 기기처럼 모두 비운 뒤 복원
+    SharedPreferences.setMockInitialValues({});
+    final preview = parseBackup(json);
+    expect(preview.diary, 1);
+    expect(preview.visits, 1);
+    expect(preview.weights, 1);
+    expect(preview.health, 1);
+    expect(preview.hasProfile, isTrue);
+    PetProfile? restoredProfile;
+    final r = await restoreBackup(
+      preview: preview,
+      includeProfile: true,
+      saveProfile: (p) async => restoredProfile = p,
+      diaryStore: LocalDiaryStore(),
+      visitStore: LocalVisitStore(),
+      weightStore: weightStore0(),
+      healthStore: healthStore0(),
+    );
+    expect(r.diary, 1);
+    expect(r.comments, 1);
+    expect(r.visits, 1);
+    expect(r.weights, 1);
+    expect(r.health, 1);
+    expect(r.skipped, 0);
+    expect(restoredProfile?.registrationNo, '123');
+    final e = (await LocalDiaryStore().load()).single;
+    expect(e.photos, ['AAAA']);
+    expect(e.walks.single.minutes, 20);
+    expect(e.commentCount, 1);
+    expect(e.reactionCount, 1);
+    expect((await LocalVisitStore().loadPhotos('v1')).single.label, '영수증');
+    expect((await weightStore0().load()).single.kg, 5.2);
+    expect((await healthStore0().load()).single.nextDate, '2027-10-04');
+
+    // 같은 파일을 한 번 더 복원해도 중복되지 않는다(댓글 포함)
+    final again = await restoreBackup(
+      preview: preview,
+      includeProfile: false,
+      saveProfile: (p) async {},
+      diaryStore: LocalDiaryStore(),
+      visitStore: LocalVisitStore(),
+      weightStore: weightStore0(),
+      healthStore: healthStore0(),
+    );
+    expect(again.comments, 0);
+    expect((await LocalDiaryStore().load()).single.commentCount, 1);
+    expect((await LocalVisitStore().load()).length, 1);
+    expect((await weightStore0().load()).length, 1);
+  });
+
+  test('잘못된 백업 파일은 거부한다', () {
+    expect(() => parseBackup('이건 JSON이 아님'), throwsFormatException);
+    expect(() => parseBackup('{"app":"다른 앱"}'), throwsFormatException);
+    expect(() => parseBackup('[1,2]'), throwsFormatException);
+    expect(
+      () => parseBackup('{"app":"치오 데일리","version":99}'),
+      throwsFormatException,
+    );
+    // 예전(버전 1) 백업은 체중·접종 항목이 없어도 읽힌다
+    final old = parseBackup(
+      '{"app":"치오 데일리","version":1,"diary":[],"visits":[]}',
+    );
+    expect(old.weights, 0);
+    expect(old.health, 0);
+    expect(old.hasProfile, isFalse);
+  });
+
+  testWidgets('건강 탭: 체중 기록과 접종 기록, 홈에 일정 표시', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(ChioApp(store: LocalProfileStore()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('건강'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('아직 체중 기록이 없어요'), findsOneWidget);
+    await tester.tap(find.text('체중 기록'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '체중(kg)'), '5.4');
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    expect(find.text('5.4kg'), findsOneWidget);
+    // 잘못된 체중은 저장되지 않는다
+    await tester.tap(find.text('체중 기록'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '체중(kg)'), '0');
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('0보다 크고'), findsOneWidget);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+
+    // 접종·예방약: 지난 예정일(지연)을 가진 기록 → 홈에 일정이 나온다
+    await tester.tap(find.text('접종·예방약'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('아직 접종·예방약 기록이 없어요'), findsOneWidget);
+    await tester.tap(find.text('접종·약 기록'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('심장사상충'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('일반적인 간격으로 제안'), findsOneWidget);
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    expect(find.text('심장사상충'), findsWidgets);
+    expect(find.text('다가오는 일정'), findsOneWidget);
+  });
+
+  testWidgets('홈에 임박·지연된 접종 일정이 보이고 누르면 건강 탭으로', (tester) async {
+    final soon = DateTime.now().add(const Duration(days: 5));
+    String d(DateTime t) =>
+        '${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
+    SharedPreferences.setMockInitialValues({
+      'health_v1': jsonEncode([
+        HealthRecord(
+          id: 'h1',
+          kind: '종합백신',
+          name: '5종 2차',
+          date: '2025-10-01',
+          nextDate: d(soon),
+        ).toMap(),
+        const HealthRecord(
+          id: 'h2',
+          kind: '광견병',
+          date: '2026-01-01',
+          nextDate: '2027-01-01',
+        ).toMap(),
+      ]),
+    });
+    await tester.pumpWidget(ChioApp(store: LocalProfileStore()));
+    await tester.pumpAndSettle();
+    expect(find.text('접종·예방약 일정'), findsOneWidget);
+    expect(find.text('종합백신 · 5종 2차'), findsOneWidget);
+    expect(find.text('D-5'), findsOneWidget);
+    expect(find.text('광견병'), findsNothing); // 먼 일정은 홈에 안 나온다
+    await tester.tap(find.text('종합백신 · 5종 2차'));
+    await tester.pumpAndSettle();
+    expect(find.text('접종·예방약'), findsOneWidget); // 건강 탭으로 이동
+    expect(find.text('다가오는 일정'), findsOneWidget);
+  });
+
+  testWidgets('상단 앱바에 백업·복원 아이콘이 있다', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(ChioApp(store: LocalProfileStore()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('백업·복원'));
+    await tester.pumpAndSettle();
+    expect(find.text('전체 백업 (JSON)'), findsOneWidget);
+    expect(find.text('방문·지출 표 (CSV)'), findsOneWidget);
+    expect(find.text('백업 파일에서 복원'), findsOneWidget);
   });
 
   test('D-day 문구', () {
