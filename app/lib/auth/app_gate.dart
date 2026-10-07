@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../data/firestore_diary_store.dart';
 import '../data/firestore_profile_store.dart';
+import '../data/firestore_visit_store.dart';
 import '../screens/home_shell.dart';
 import 'family.dart';
 import 'family_setup_screen.dart';
@@ -83,6 +84,7 @@ class _AppGateState extends State<AppGate> {
           key: ValueKey(family.id),
           store: FirestoreProfileStore(family.id),
           diaryStore: FirestoreDiaryStore(family.id),
+          visitStore: FirestoreVisitStore(family.id),
           familyInfo: FamilyInfo(
             name: family.name,
             inviteCode: family.inviteCode,

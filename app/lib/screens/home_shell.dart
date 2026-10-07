@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../data/diary_store.dart';
 import '../data/profile_store.dart';
+import '../data/visit_store.dart';
+import '../models/visit.dart';
 import '../models/pet_profile.dart';
 import '../widgets_pet_avatar.dart';
 import 'diary_screen.dart';
 import 'profile_edit_screen.dart';
+import 'visits_screen.dart';
+import 'diary_edit_screen.dart' show todayString;
 import 'profile_screen.dart';
 
 /// 가족 공유 모드에서 앱바 메뉴에 보여줄 정보.
@@ -30,10 +34,12 @@ class HomeShell extends StatefulWidget {
     super.key,
     required this.store,
     this.diaryStore,
+    this.visitStore,
     this.familyInfo,
   });
   final ProfileStore store;
   final DiaryStore? diaryStore;
+  final VisitStore? visitStore;
   final FamilyInfo? familyInfo;
 
   @override
@@ -43,6 +49,8 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   late final DiaryStore _diaryStore = widget.diaryStore ?? LocalDiaryStore();
+  late final VisitStore _visitStore = widget.visitStore ?? LocalVisitStore();
+  List<Visit> _visits = [];
   PetProfile _profile = const PetProfile();
   bool _loading = true;
 
@@ -52,7 +60,20 @@ class _HomeShellState extends State<HomeShell> {
     _reload();
   }
 
+  Future<void> _loadVisits() async {
+    try {
+      final v = await _visitStore.load();
+      if (mounted) setState(() => _visits = v);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('방문 기록을 불러오지 못했습니다. $e')));
+      }
+    }
+  }
+
   Future<void> _reload() async {
+    _loadVisits();
     try {
       final p = await widget.store.load();
       if (!mounted) return;
@@ -135,14 +156,25 @@ class _HomeShellState extends State<HomeShell> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final pages = <Widget>[
-      _HomeTab(profile: _profile),
+      _HomeTab(
+        profile: _profile,
+        upcoming: upcomingVisits(_visits, todayString()),
+      ),
       DiaryScreen(
         store: _diaryStore,
         authorName: widget.familyInfo?.userLabel.isNotEmpty == true
             ? widget.familyInfo!.userLabel
             : '나',
       ),
-      const _ComingSoon(title: '병원·미용', note: '그 다음 단계(1-C)에서 만듭니다.'),
+      VisitsScreen(
+        store: _visitStore,
+        visits: _visits,
+        places: _profile.places,
+        authorName: widget.familyInfo?.userLabel.isNotEmpty == true
+            ? widget.familyInfo!.userLabel
+            : '나',
+        onChanged: _loadVisits,
+      ),
       ProfileScreen(profile: _profile, onEdit: _edit, onChanged: _update),
     ];
     return Scaffold(
@@ -195,8 +227,9 @@ class _HomeShellState extends State<HomeShell> {
 }
 
 class _HomeTab extends StatelessWidget {
-  const _HomeTab({required this.profile});
+  const _HomeTab({required this.profile, required this.upcoming});
   final PetProfile profile;
+  final List<Visit> upcoming;
 
   @override
   Widget build(BuildContext context) {
@@ -222,17 +255,34 @@ class _HomeTab extends StatelessWidget {
             ),
           ),
         ),
+        if (upcoming.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 16, bottom: 4),
+            child: Text(
+              '다가오는 예약',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          for (final v in upcoming.take(3))
+            Card(
+              child: ListTile(
+                leading: Icon(
+                  v.type == '미용'
+                      ? Icons.content_cut
+                      : Icons.local_hospital_outlined,
+                ),
+                title: Text(v.placeName.isEmpty ? v.type : v.placeName),
+                subtitle: Text(
+                  '${v.date}${v.time.isEmpty ? '' : ' ${v.time}'}',
+                ),
+                trailing: Text(
+                  ddayText(v.date, DateTime.now()),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            ),
+        ],
       ],
     );
   }
-}
-
-class _ComingSoon extends StatelessWidget {
-  const _ComingSoon({required this.title, required this.note});
-  final String title;
-  final String note;
-
-  @override
-  Widget build(BuildContext context) =>
-      Center(child: Text('$title\n$note', textAlign: TextAlign.center));
 }

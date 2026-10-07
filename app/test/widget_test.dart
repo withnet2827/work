@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:chio_daily/data/profile_store.dart';
 import 'package:chio_daily/main.dart';
 import 'package:chio_daily/models/attachment.dart';
+import 'package:chio_daily/models/visit.dart';
+import 'package:chio_daily/data/visit_store.dart';
 import 'package:chio_daily/models/diary_entry.dart';
 import 'package:chio_daily/data/diary_store.dart';
 import 'package:chio_daily/models/pet_profile.dart';
@@ -96,6 +98,69 @@ void main() {
     await tester.tap(find.text('저장'));
     await tester.pumpAndSettle();
     expect(find.text('오늘 공원 산책!'), findsOneWidget);
+  });
+
+  test('방문 기록 저장·정렬·사진·삭제(로컬)', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalVisitStore();
+    await store.save(
+      const Visit(
+        id: 'a',
+        date: '2026-09-01',
+        placeName: '행복동물병원',
+        amount: 35000,
+      ),
+    );
+    await store.save(
+      Visit(
+        id: 'b',
+        type: '미용',
+        status: '예약',
+        date: '2026-10-20',
+        time: '14:00',
+        placeName: '멍멍미용',
+        photos: const [
+          Attachment(
+            id: 'p',
+            photoBase64: 'AAAA',
+            label: '미용 전',
+            date: '2026-10-20',
+          ),
+        ],
+      ),
+    );
+    final list = await store.load();
+    expect(list.map((e) => e.id), ['b', 'a']);
+    expect((await store.loadPhotos('b')).single.label, '미용 전');
+    expect(upcomingVisits(list, '2026-10-07').map((e) => e.id), ['b']);
+    expect(upcomingVisits(list, '2026-10-21'), isEmpty);
+    await store.delete('a');
+    expect((await store.load()).length, 1);
+  });
+
+  test('D-day 문구', () {
+    final today = DateTime(2026, 10, 7);
+    expect(ddayText('2026-10-10', today), 'D-3');
+    expect(ddayText('2026-10-07', today), 'D-day');
+    expect(ddayText('2026-10-05', today), 'D+2');
+    expect(ddayText('', today), '');
+  });
+
+  testWidgets('병원·미용 탭에서 기록 추가', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(ChioApp(store: LocalProfileStore()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('병원·미용'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('아직 기록이 없어요'), findsOneWidget);
+    await tester.tap(find.text('기록 추가'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '장소'), '행복동물병원');
+    await tester.enterText(find.widgetWithText(TextField, '금액(원)'), '35000');
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    expect(find.text('행복동물병원'), findsOneWidget);
+    expect(find.textContaining('35,000원'), findsWidgets);
   });
 
   test('이전 버전 병원·미용실 필드 이전', () {
