@@ -1,11 +1,11 @@
 {
-    "name": "chio_daily",
-    "short_name": "chio_daily",
+    "name": "치오 데일리",
+    "short_name": "치오",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFF8F0",
+    "theme_color": "#E59A4F",
+    "description": "반려견 치오의 일상을 기록하고 가족과 공유하는 앱",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
@@ -31,5 +31,6 @@
             "type": "image/png",
             "purpose": "maskable"
         }
-    ]
+    ],
+    "lang": "ko"
 }
