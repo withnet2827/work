@@ -5,12 +5,15 @@ import '../backup/file_download.dart';
 import '../data/diary_store.dart';
 import '../data/profile_store.dart';
 import '../data/visit_store.dart';
+import '../models/diary_entry.dart';
 import '../models/visit.dart';
+import '../models/week_stats.dart';
 import '../models/pet_profile.dart';
 import '../widgets_pet_avatar.dart';
 import 'diary_screen.dart';
 import 'profile_edit_screen.dart';
 import 'visit_actions.dart';
+import 'week_stats_card.dart';
 import 'visits_screen.dart';
 import 'diary_edit_screen.dart' show todayString;
 import 'profile_screen.dart';
@@ -56,6 +59,7 @@ class _HomeShellState extends State<HomeShell> {
   late final DiaryStore _diaryStore = widget.diaryStore ?? LocalDiaryStore();
   late final VisitStore _visitStore = widget.visitStore ?? LocalVisitStore();
   List<Visit> _visits = [];
+  List<DiaryEntry> _entries = [];
   PetProfile _profile = const PetProfile();
   bool _loading = true;
 
@@ -77,8 +81,18 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
+  Future<void> _loadEntries() async {
+    try {
+      final e = await _diaryStore.load();
+      if (mounted) setState(() => _entries = e);
+    } catch (_) {
+      // 요약은 보조 정보라 실패해도 조용히 넘어간다(일기 탭에서 오류를 보여준다).
+    }
+  }
+
   Future<void> _reload() async {
     _loadVisits();
+    _loadEntries();
     try {
       final p = await widget.store.load();
       if (!mounted) return;
@@ -250,6 +264,7 @@ class _HomeShellState extends State<HomeShell> {
         profile: _profile,
         upcoming: upcomingVisits(_visits, todayString()),
         actions: _visitActions,
+        stats: WeekStats.from(_entries, DateTime.now()),
       ),
       DiaryScreen(
         store: _diaryStore,
@@ -288,7 +303,10 @@ class _HomeShellState extends State<HomeShell> {
       body: pages[_tab],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
-        onDestinationSelected: (i) => setState(() => _tab = i),
+        onDestinationSelected: (i) {
+          setState(() => _tab = i);
+          if (i == 0) _loadEntries(); // 일기에서 쓴 기록을 홈 요약에 반영
+        },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
@@ -321,10 +339,12 @@ class _HomeTab extends StatelessWidget {
     required this.profile,
     required this.upcoming,
     required this.actions,
+    required this.stats,
   });
   final PetProfile profile;
   final List<Visit> upcoming;
   final VisitActions actions;
+  final WeekStats stats;
 
   @override
   Widget build(BuildContext context) {
@@ -350,6 +370,7 @@ class _HomeTab extends StatelessWidget {
             ),
           ),
         ),
+        WeekStatsCard(stats: stats),
         if (upcoming.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.only(top: 16, bottom: 4),

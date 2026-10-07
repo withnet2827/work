@@ -12,6 +12,7 @@ import 'package:chio_daily/models/diary_entry.dart';
 import 'package:chio_daily/data/diary_store.dart';
 import 'package:chio_daily/models/diary_comment.dart';
 import 'package:chio_daily/models/daily_log.dart';
+import 'package:chio_daily/models/week_stats.dart';
 import 'package:chio_daily/models/pet_profile.dart';
 import 'package:chio_daily/models/place.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -473,6 +474,68 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('보듬동물병원'), findsNothing);
     expect(await LocalVisitStore().load(), isEmpty);
+  });
+
+  test('최근 7일 요약 집계', () {
+    final today = DateTime(2026, 10, 7);
+    final stats = WeekStats.from(const [
+      DiaryEntry(
+        id: 'a',
+        date: '2026-10-07',
+        walks: [
+          WalkLog(minutes: 30, poop: '정상'),
+          WalkLog(minutes: 15, poop: '없음'),
+        ],
+        feeds: [FeedLog(kind: '간식')],
+      ),
+      DiaryEntry(
+        id: 'b',
+        date: '2026-10-05',
+        walks: [WalkLog(minutes: 20, poop: '설사')],
+      ),
+      // 범위 밖(7일 전보다 이전, 미래)은 제외
+      DiaryEntry(
+        id: 'c',
+        date: '2026-09-30',
+        walks: [WalkLog(minutes: 99, poop: '정상')],
+      ),
+      DiaryEntry(
+        id: 'd',
+        date: '2026-10-08',
+        walks: [WalkLog(minutes: 99, poop: '정상')],
+      ),
+    ], today);
+    expect(stats.days.length, 7);
+    expect(stats.days.first.date, '2026-10-01');
+    expect(stats.days.last.date, '2026-10-07');
+    expect(stats.walkCount, 3);
+    expect(stats.walkMinutes, 65);
+    expect(stats.poopNormal, 1);
+    expect(stats.poopAbnormal, 1);
+    expect(stats.poopNone, 1);
+    expect(stats.feedCount, 1);
+    expect(stats.maxMinutes, 45);
+    expect(WeekStats.from(const [], today).isEmpty, isTrue);
+  });
+
+  testWidgets('홈 요약: 일기에 쓴 산책이 반영된다', (tester) async {
+    final now = DateTime.now();
+    final d =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    SharedPreferences.setMockInitialValues({
+      'diary_v1': jsonEncode([
+        DiaryEntry(
+          id: 'x',
+          date: d,
+          walks: const [WalkLog(minutes: 25, poop: '무름')],
+        ).toMap(),
+      ]),
+    });
+    await tester.pumpWidget(ChioApp(store: LocalProfileStore()));
+    await tester.pumpAndSettle();
+    expect(find.text('최근 7일'), findsOneWidget);
+    expect(find.textContaining('산책 1회 · 총 25분'), findsOneWidget);
+    expect(find.textContaining('이상 1'), findsOneWidget);
   });
 
   test('D-day 문구', () {
