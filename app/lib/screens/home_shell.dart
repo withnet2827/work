@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../backup/backup_service.dart';
+import '../backup/file_download.dart';
 import '../data/diary_store.dart';
 import '../data/profile_store.dart';
 import '../data/visit_store.dart';
@@ -91,6 +93,72 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
+  Future<void> _runExport(Future<void> Function() job) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('파일을 만드는 중입니다...')));
+    try {
+      await job();
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('내려받기를 시작했습니다. 다운로드 폴더를 확인하세요.')),
+        );
+    } catch (e) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('내보내지 못했습니다. $e')));
+    }
+  }
+
+  void _showBackup() {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (c) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.archive_outlined),
+              title: const Text('전체 백업 (JSON)'),
+              subtitle: const Text('프로필·일기·방문 기록과 사진·댓글을 한 파일로'),
+              onTap: () {
+                Navigator.pop(c);
+                _runExport(() async {
+                  final json = await buildBackupJson(
+                    profile: _profile,
+                    diaryStore: _diaryStore,
+                    visitStore: _visitStore,
+                  );
+                  await downloadTextFile(
+                    backupFileName('chio-backup', 'json'),
+                    json,
+                    mime: 'application/json',
+                  );
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.table_chart_outlined),
+              title: const Text('방문·지출 표 (CSV)'),
+              subtitle: const Text('엑셀에서 바로 열 수 있어요'),
+              onTap: () {
+                Navigator.pop(c);
+                _runExport(() async {
+                  final visits = await _visitStore.load();
+                  await downloadTextFile(
+                    backupFileName('chio-visits', 'csv'),
+                    visitsCsv(visits),
+                    mime: 'text/csv',
+                  );
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showFamily() {
     final f = widget.familyInfo!;
     showDialog<void>(
@@ -113,6 +181,11 @@ class _HomeShellState extends State<HomeShell> {
           ],
         ),
         actions: [
+          IconButton(
+            onPressed: _showBackup,
+            icon: const Icon(Icons.download_outlined),
+            tooltip: '백업·내보내기',
+          ),
           TextButton(
             onPressed: () => Navigator.pop(c),
             child: const Text('닫기'),

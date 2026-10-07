@@ -4,6 +4,10 @@ import 'package:chio_daily/main.dart';
 import 'package:chio_daily/models/attachment.dart';
 import 'package:chio_daily/models/visit.dart';
 import 'package:chio_daily/data/visit_store.dart';
+import 'package:chio_daily/backup/backup_service.dart';
+
+import 'dart:convert';
+
 import 'package:chio_daily/models/diary_entry.dart';
 import 'package:chio_daily/data/diary_store.dart';
 import 'package:chio_daily/models/diary_comment.dart';
@@ -207,6 +211,85 @@ void main() {
     expect(upcomingVisits(list, '2026-10-21'), isEmpty);
     await store.delete('a');
     expect((await store.load()).length, 1);
+  });
+
+  test('CSV 칸 처리: 쉼표·따옴표·줄바꿈', () {
+    expect(csvCell('보듬 동물병원'), '보듬 동물병원');
+    expect(csvCell('귀, 눈'), '"귀, 눈"');
+    expect(csvCell('say "hi"'), r'"say ""hi"""');
+    expect(csvCell('a\nb'), '"a\nb"');
+  });
+
+  test('방문·지출 CSV 생성', () {
+    final csv = visitsCsv(const [
+      Visit(
+        id: 'b',
+        date: '2026-10-05',
+        placeName: '미용실',
+        type: '미용',
+        amount: 40000,
+      ),
+      Visit(
+        id: 'a',
+        date: '2026-09-01',
+        placeName: '병원, 본점',
+        amount: 35000,
+        memo: '메모',
+      ),
+    ]);
+    expect(csv.startsWith('﻿날짜,시간,구분'), isTrue);
+    final lines = csv.trim().split('\r\n');
+    expect(lines.length, 3);
+    expect(lines[1], contains('"병원, 본점"')); // 날짜순(오래된 것 먼저)
+    expect(lines[2], contains('미용실'));
+  });
+
+  test('전체 백업 JSON 구성', () async {
+    SharedPreferences.setMockInitialValues({});
+    final diary = LocalDiaryStore();
+    final visits = LocalVisitStore();
+    await diary.save(
+      const DiaryEntry(
+        id: 'd1',
+        date: '2026-10-01',
+        body: '일기',
+        photos: ['AAAA'],
+      ),
+    );
+    await diary.addComment(
+      'd1',
+      const DiaryComment(
+        id: 'c1',
+        author: '엄마',
+        authorId: 'u',
+        text: '굿',
+        createdAt: 1,
+      ),
+    );
+    await visits.save(
+      Visit(
+        id: 'v1',
+        date: '2026-10-02',
+        placeName: '병원',
+        amount: 1000,
+        photos: const [Attachment(id: 'p', photoBase64: 'BBBB', label: '영수증')],
+      ),
+    );
+    final out = await buildBackupJson(
+      profile: const PetProfile(name: '치오'),
+      diaryStore: diary,
+      visitStore: visits,
+      now: DateTime(2026, 10, 7),
+    );
+    final m = jsonDecode(out) as Map<String, dynamic>;
+    expect(m['profile']['name'], '치오');
+    expect((m['diary'] as List).single['photos'], ['AAAA']);
+    expect((m['diary'] as List).single['comments'], isNotEmpty);
+    expect((m['visits'] as List).single['photos'][0]['label'], '영수증');
+    expect(
+      backupFileName('x', 'json', DateTime(2026, 10, 7)),
+      'x-2026-10-07.json',
+    );
   });
 
   test('D-day 문구', () {
