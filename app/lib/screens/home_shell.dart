@@ -437,6 +437,7 @@ class _HomeShellState extends State<HomeShell> {
         healthStore: _healthStore,
         authorName: authorName,
         onHealthChanged: _loadHealth,
+        places: _profile.places,
       ),
       ProfileScreen(profile: _profile, onEdit: _edit, onChanged: _update),
     ];

@@ -4,6 +4,7 @@ import '../backup/file_download.dart';
 import '../backup/ics.dart';
 import '../data/record_store.dart';
 import '../models/health_record.dart';
+import '../models/place.dart';
 import '../models/visit.dart' show ddayText;
 import 'diary_edit_screen.dart' show todayString;
 
@@ -14,10 +15,20 @@ class HealthSection extends StatefulWidget {
     required this.store,
     required this.authorName,
     required this.onChanged,
+    this.places = const [],
   });
   final RecordStore<HealthRecord> store;
   final String authorName;
   final VoidCallback onChanged; // 변경 후 홈의 다가오는 일정 갱신용
+  final List<Place> places;
+
+  /// 프로필에 등록된 첫 번째 병원 이름(없으면 빈 문자열).
+  String get defaultHospital {
+    for (final p in places) {
+      if (p.category == '병원' && p.name.isNotEmpty) return p.name;
+    }
+    return '';
+  }
 
   @override
   State<HealthSection> createState() => _HealthSectionState();
@@ -70,6 +81,7 @@ class _HealthSectionState extends State<HealthSection> {
       name: name,
       date: today,
       nextDate: HealthRecord.suggestNext(kind, today),
+      place: widget.defaultHospital,
       author: widget.authorName,
       createdAt: now.millisecondsSinceEpoch,
     );
@@ -79,7 +91,8 @@ class _HealthSectionState extends State<HealthSection> {
     final result = await showModalBottomSheet<HealthRecord>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _HealthForm(initial: r, isNew: isNew),
+      builder: (_) =>
+          _HealthForm(initial: r, isNew: isNew, places: widget.places),
     );
     if (result == null) return;
     try {
@@ -260,9 +273,14 @@ class _HealthSectionState extends State<HealthSection> {
 }
 
 class _HealthForm extends StatefulWidget {
-  const _HealthForm({required this.initial, required this.isNew});
+  const _HealthForm({
+    required this.initial,
+    required this.isNew,
+    this.places = const [],
+  });
   final HealthRecord initial;
   final bool isNew;
+  final List<Place> places;
 
   @override
   State<_HealthForm> createState() => _HealthFormState();
@@ -413,6 +431,17 @@ class _HealthFormState extends State<_HealthForm> {
                 border: OutlineInputBorder(),
               ),
             ),
+            if (widget.places.any((p) => p.name.isNotEmpty))
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final p in widget.places.where((p) => p.name.isNotEmpty))
+                    ActionChip(
+                      label: Text(p.name),
+                      onPressed: () => setState(() => _place.text = p.name),
+                    ),
+                ],
+              ),
             const SizedBox(height: 12),
             TextField(
               controller: _memo,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/record_store.dart';
 import '../models/health_record.dart';
+import '../models/place.dart';
 import '../models/weight_log.dart';
 import 'health_section.dart';
 import 'weight_section.dart';
@@ -15,12 +16,14 @@ class HealthScreen extends StatefulWidget {
     required this.authorName,
     required this.onHealthChanged,
     this.initialTab = 0,
+    this.places = const [],
   });
   final RecordStore<WeightLog> weightStore;
   final RecordStore<HealthRecord> healthStore;
   final String authorName;
   final VoidCallback onHealthChanged;
   final int initialTab; // 0 체중, 1 접종·예방약
+  final List<Place> places; // 프로필에 등록된 장소(기본 병원 초기값용)
 
   @override
   State<HealthScreen> createState() => _HealthScreenState();
@@ -62,6 +65,7 @@ class _HealthScreenState extends State<HealthScreen> {
                   store: widget.healthStore,
                   authorName: widget.authorName,
                   onChanged: widget.onHealthChanged,
+                  places: widget.places,
                 ),
         ),
       ],
