@@ -8,6 +8,7 @@ import '../models/diary_entry.dart';
 import 'attachment_viewer_screen.dart';
 import 'diary_detail_screen.dart';
 import 'diary_edit_screen.dart';
+import 'diary_views.dart';
 
 /// 일기 탭: 월별로 묶은 타임라인.
 class DiaryScreen extends StatefulWidget {
@@ -30,6 +31,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
   bool _loading = true;
   String? _error;
   String _query = '';
+  int _view = 0; // 0 목록, 1 달력, 2 사진
 
   @override
   void initState() {
@@ -142,12 +144,12 @@ class _DiaryScreenState extends State<DiaryScreen> {
     );
   }
 
-  void _write() {
+  void _write([String? date]) {
     final now = DateTime.now();
     _open(
       DiaryEntry(
         id: now.microsecondsSinceEpoch.toString(),
-        date: todayString(now),
+        date: date ?? todayString(now),
         author: widget.authorName,
         createdAt: now.millisecondsSinceEpoch,
       ),
@@ -231,8 +233,47 @@ class _DiaryScreenState extends State<DiaryScreen> {
         ),
       );
     }
+    if (!_loading && _error == null && _entries.isNotEmpty && _view != 0) {
+      body = _view == 1
+          ? DiaryCalendarView(
+              entries: _entries,
+              onOpen: _openDetail,
+              onWrite: _write,
+            )
+          : DiaryGalleryView(entries: _entries, onOpen: _openDetail);
+    }
     return Scaffold(
-      body: body,
+      body: Column(
+        children: [
+          if (_entries.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: SegmentedButton<int>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(
+                    value: 0,
+                    icon: Icon(Icons.view_agenda_outlined),
+                    label: Text('목록'),
+                  ),
+                  ButtonSegment(
+                    value: 1,
+                    icon: Icon(Icons.calendar_month_outlined),
+                    label: Text('달력'),
+                  ),
+                  ButtonSegment(
+                    value: 2,
+                    icon: Icon(Icons.photo_library_outlined),
+                    label: Text('사진'),
+                  ),
+                ],
+                selected: {_view},
+                onSelectionChanged: (v) => setState(() => _view = v.first),
+              ),
+            ),
+          Expanded(child: body),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _write,
         icon: const Icon(Icons.edit),
