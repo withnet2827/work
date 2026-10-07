@@ -10,6 +10,7 @@ import '../models/pet_profile.dart';
 import '../widgets_pet_avatar.dart';
 import 'diary_screen.dart';
 import 'profile_edit_screen.dart';
+import 'visit_actions.dart';
 import 'visits_screen.dart';
 import 'diary_edit_screen.dart' show todayString;
 import 'profile_screen.dart';
@@ -225,30 +226,41 @@ class _HomeShellState extends State<HomeShell> {
     if (mounted) setState(() => _profile = p);
   }
 
+  VisitActions get _visitActions => VisitActions(
+    store: _visitStore,
+    places: _profile.places,
+    authorName: widget.familyInfo?.userLabel.isNotEmpty == true
+        ? widget.familyInfo!.userLabel
+        : '나',
+    onChanged: _loadVisits,
+    onAddPlace: (p) =>
+        _update(_profile.copyWith(places: [..._profile.places, p])),
+  );
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    final authorName = widget.familyInfo?.userLabel.isNotEmpty == true
+        ? widget.familyInfo!.userLabel
+        : '나';
     final pages = <Widget>[
       _HomeTab(
         profile: _profile,
         upcoming: upcomingVisits(_visits, todayString()),
+        actions: _visitActions,
       ),
       DiaryScreen(
         store: _diaryStore,
-        authorName: widget.familyInfo?.userLabel.isNotEmpty == true
-            ? widget.familyInfo!.userLabel
-            : '나',
+        authorName: authorName,
         userId: widget.familyInfo?.userId ?? 'local',
       ),
       VisitsScreen(
         store: _visitStore,
         visits: _visits,
         places: _profile.places,
-        authorName: widget.familyInfo?.userLabel.isNotEmpty == true
-            ? widget.familyInfo!.userLabel
-            : '나',
+        authorName: authorName,
         onChanged: _loadVisits,
         onAddPlace: (p) =>
             _update(_profile.copyWith(places: [..._profile.places, p])),
@@ -305,9 +317,14 @@ class _HomeShellState extends State<HomeShell> {
 }
 
 class _HomeTab extends StatelessWidget {
-  const _HomeTab({required this.profile, required this.upcoming});
+  const _HomeTab({
+    required this.profile,
+    required this.upcoming,
+    required this.actions,
+  });
   final PetProfile profile;
   final List<Visit> upcoming;
+  final VisitActions actions;
 
   @override
   Widget build(BuildContext context) {
@@ -344,6 +361,7 @@ class _HomeTab extends StatelessWidget {
           for (final v in upcoming.take(3))
             Card(
               child: ListTile(
+                onTap: () => actions.showSheet(context, v),
                 leading: Icon(
                   v.type == '미용'
                       ? Icons.content_cut

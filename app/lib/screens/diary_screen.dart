@@ -77,6 +77,39 @@ class _DiaryScreenState extends State<DiaryScreen> {
     );
   }
 
+  /// 확인 후 일기 삭제(사진·댓글·공감 포함). 삭제했으면 true.
+  Future<bool> _confirmDelete(DiaryEntry e) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('일기 삭제'),
+        content: Text('${e.date} 일기를 삭제할까요?\n사진과 댓글도 함께 삭제됩니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return false;
+    try {
+      await widget.store.delete(e.id);
+      await _reload();
+      return true;
+    } catch (err) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('삭제하지 못했습니다. $err')));
+      }
+      return false;
+    }
+  }
+
   void _openDetail(DiaryEntry e) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -86,6 +119,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
           userId: widget.userId,
           userName: widget.authorName,
           onEdit: () => _open(e, isNew: false),
+          onDelete: () => _confirmDelete(e),
           onChanged: _reload,
         ),
       ),
@@ -139,7 +173,14 @@ class _DiaryScreenState extends State<DiaryScreen> {
             ),
           );
         }
-        children.add(_EntryCard(entry: e, onTap: () => _openDetail(e)));
+        children.add(
+          _EntryCard(
+            entry: e,
+            onTap: () => _openDetail(e),
+            onEdit: () => _open(e, isNew: false),
+            onDelete: () => _confirmDelete(e),
+          ),
+        );
       }
       body = RefreshIndicator(
         onRefresh: _reload,
@@ -163,9 +204,16 @@ class _DiaryScreenState extends State<DiaryScreen> {
 int _walkMinutes(DiaryEntry e) => e.walks.fold(0, (a, w) => a + w.minutes);
 
 class _EntryCard extends StatelessWidget {
-  const _EntryCard({required this.entry, required this.onTap});
+  const _EntryCard({
+    required this.entry,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
+  });
   final DiaryEntry entry;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -189,6 +237,18 @@ class _EntryCard extends StatelessWidget {
                   const Spacer(),
                   if (entry.author.isNotEmpty)
                     Text(entry.author, style: text.bodySmall),
+                  IconButton(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined, size: 20),
+                    tooltip: '수정',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  IconButton(
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete_outline, size: 20),
+                    tooltip: '삭제',
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ],
               ),
               if (entry.walks.isNotEmpty || entry.feeds.isNotEmpty)

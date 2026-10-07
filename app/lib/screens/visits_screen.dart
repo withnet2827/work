@@ -5,7 +5,7 @@ import '../data/visit_store.dart';
 import '../models/place.dart';
 import '../models/visit.dart';
 import 'diary_edit_screen.dart' show todayString;
-import 'visit_edit_screen.dart';
+import 'visit_actions.dart';
 
 /// 병원·미용 탭: 다가오는 예약 + 지난 기록(월별) + 지출 요약.
 class VisitsScreen extends StatefulWidget {
@@ -33,41 +33,26 @@ class _VisitsScreenState extends State<VisitsScreen> {
   String _filter = '전체';
   static final _won = NumberFormat('#,###');
 
-  Future<void> _open(Visit v, {required bool isNew}) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => VisitEditScreen(
-          visit: v,
-          isNew: isNew,
-          places: widget.places,
-          store: widget.store,
-          onAddPlace: widget.onAddPlace,
-          onSave: (e) async {
-            await widget.store.save(e);
-            await widget.onChanged();
-          },
-          onDelete: isNew
-              ? null
-              : () async {
-                  await widget.store.delete(v.id);
-                  await widget.onChanged();
-                },
-        ),
-      ),
-    );
-  }
+  late VisitActions _actions = VisitActions(
+    store: widget.store,
+    places: widget.places,
+    authorName: widget.authorName,
+    onChanged: widget.onChanged,
+    onAddPlace: widget.onAddPlace,
+  );
 
-  void _add() {
-    final now = DateTime.now();
-    _open(
-      Visit(
-        id: now.microsecondsSinceEpoch.toString(),
-        date: todayString(now),
-        author: widget.authorName,
-        createdAt: now.millisecondsSinceEpoch,
-      ),
-      isNew: true,
-    );
+  @override
+  void didUpdateWidget(covariant VisitsScreen old) {
+    super.didUpdateWidget(old);
+    if (old.places != widget.places) {
+      _actions = VisitActions(
+        store: widget.store,
+        places: widget.places,
+        authorName: widget.authorName,
+        onChanged: widget.onChanged,
+        onAddPlace: widget.onAddPlace,
+      );
+    }
   }
 
   @override
@@ -115,13 +100,7 @@ class _VisitsScreenState extends State<VisitsScreen> {
         ),
       );
       for (final v in upcoming) {
-        children.add(
-          _VisitCard(
-            visit: v,
-            onTap: () => _open(v, isNew: false),
-            highlight: true,
-          ),
-        );
+        children.add(_VisitCard(visit: v, actions: _actions, highlight: true));
       }
     }
     String lastMonth = '';
@@ -136,7 +115,7 @@ class _VisitsScreenState extends State<VisitsScreen> {
           ),
         );
       }
-      children.add(_VisitCard(visit: v, onTap: () => _open(v, isNew: false)));
+      children.add(_VisitCard(visit: v, actions: _actions));
     }
     if (filtered.isEmpty) {
       children.add(
@@ -160,7 +139,7 @@ class _VisitsScreenState extends State<VisitsScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _add,
+        onPressed: () => _actions.add(context),
         icon: const Icon(Icons.add),
         label: const Text('기록 추가'),
       ),
@@ -171,11 +150,11 @@ class _VisitsScreenState extends State<VisitsScreen> {
 class _VisitCard extends StatelessWidget {
   const _VisitCard({
     required this.visit,
-    required this.onTap,
+    required this.actions,
     this.highlight = false,
   });
   final Visit visit;
-  final VoidCallback onTap;
+  final VisitActions actions;
   final bool highlight;
 
   static final _won = NumberFormat('#,###');
@@ -193,7 +172,7 @@ class _VisitCard extends StatelessWidget {
     return Card(
       color: highlight ? scheme.primaryContainer : null,
       child: ListTile(
-        onTap: onTap,
+        onTap: () => actions.showSheet(context, visit),
         leading: CircleAvatar(child: Icon(icon)),
         title: Text(visit.placeName.isEmpty ? visit.type : visit.placeName),
         subtitle: Text(
@@ -205,16 +184,39 @@ class _VisitCard extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         isThreeLine: visit.detail.isNotEmpty,
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            if (dday.isNotEmpty) Text(dday, style: text.titleSmall),
-            if (visit.status == '예약' && dday.isEmpty) const Text('예약'),
-            if (visit.amount > 0)
-              Text('${_won.format(visit.amount)}원', style: text.bodySmall),
-            if (visit.photoCount > 0)
-              Text('📷 ${visit.photoCount}', style: text.bodySmall),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (dday.isNotEmpty) Text(dday, style: text.titleSmall),
+                if (visit.status == '예약' && dday.isEmpty) const Text('예약'),
+                if (visit.amount > 0)
+                  Text('${_won.format(visit.amount)}원', style: text.bodySmall),
+                if (visit.photoCount > 0)
+                  Text('📷 ${visit.photoCount}', style: text.bodySmall),
+              ],
+            ),
+            PopupMenuButton<String>(
+              tooltip: '더보기',
+              onSelected: (v) {
+                if (v == 'edit') {
+                  actions.openEditor(context, visit);
+                } else if (v == 'done') {
+                  actions.markDone(context, visit);
+                } else {
+                  actions.confirmDelete(context, visit);
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'edit', child: Text('수정')),
+                if (visit.isUpcoming)
+                  const PopupMenuItem(value: 'done', child: Text('완료 처리')),
+                const PopupMenuItem(value: 'delete', child: Text('삭제')),
+              ],
+            ),
           ],
         ),
       ),

@@ -299,6 +299,14 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
               ],
             ),
           ),
+          if (!widget.isNew && widget.onDelete != null) ...[
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _delete,
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('이 일기 삭제'),
+            ),
+          ],
           if (_busy)
             const Padding(
               padding: EdgeInsets.only(top: 16),

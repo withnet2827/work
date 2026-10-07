@@ -17,6 +17,7 @@ class DiaryDetailScreen extends StatefulWidget {
     required this.userId,
     required this.userName,
     required this.onEdit,
+    required this.onDelete,
     required this.onChanged,
   });
   final DiaryEntry entry;
@@ -24,6 +25,7 @@ class DiaryDetailScreen extends StatefulWidget {
   final String userId;
   final String userName;
   final VoidCallback onEdit; // 수정 화면 열기(상세는 닫힌다)
+  final Future<bool> Function() onDelete; // 확인 후 삭제, 삭제했으면 true
   final Future<void> Function() onChanged; // 댓글·공감 변경 후 목록 집계 새로고침
 
   @override
@@ -185,6 +187,15 @@ class _DiaryDetailScreenState extends State<DiaryDetailScreen> {
             },
             icon: const Icon(Icons.edit_outlined),
             tooltip: '수정',
+          ),
+          IconButton(
+            onPressed: () async {
+              if (await widget.onDelete() && context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+            icon: const Icon(Icons.delete_outline),
+            tooltip: '삭제',
           ),
         ],
       ),

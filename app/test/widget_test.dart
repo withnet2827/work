@@ -372,6 +372,109 @@ void main() {
     expect(find.textContaining('추가 급여 1건'), findsOneWidget);
   });
 
+  testWidgets('일기 목록에서 수정·삭제 버튼, 상세에서 삭제', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(ChioApp(store: LocalProfileStore()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('일기'));
+    await tester.pumpAndSettle();
+    for (final body in ['첫 일기', '둘째 일기']) {
+      await tester.tap(find.text('일기 쓰기'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), body);
+      await tester.tap(find.text('저장'));
+      await tester.pumpAndSettle();
+    }
+    expect(find.byIcon(Icons.edit_outlined), findsNWidgets(2));
+    // 목록 삭제: 취소하면 남고, 삭제하면 사라진다
+    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(find.text('둘째 일기'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '삭제'));
+    await tester.pumpAndSettle();
+    expect(find.text('둘째 일기'), findsNothing);
+    expect(find.text('첫 일기'), findsOneWidget);
+    // 상세 화면에서 삭제
+    await tester.tap(find.text('첫 일기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '삭제'));
+    await tester.pumpAndSettle();
+    expect(find.text('첫 일기'), findsNothing);
+    expect(find.textContaining('아직 일기가 없어요'), findsOneWidget);
+  });
+
+  testWidgets('홈의 다가오는 예약: 눌러서 확인·완료 처리·삭제', (tester) async {
+    final today = DateTime.now();
+    String d(DateTime t) =>
+        '${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
+    SharedPreferences.setMockInitialValues({
+      'visits_v1': jsonEncode([
+        Visit(
+          id: 'u1',
+          type: '미용',
+          status: '예약',
+          date: d(today.add(const Duration(days: 3))),
+          time: '14:00',
+          placeName: '멍멍미용',
+          amount: 40000,
+          memo: '발톱도 부탁',
+          photos: const [
+            Attachment(id: 'p', photoBase64: 'AAAA', label: '미용 전'),
+          ],
+        ).toMap(),
+      ]),
+    });
+    await tester.pumpWidget(ChioApp(store: LocalProfileStore()));
+    await tester.pumpAndSettle();
+    expect(find.text('다가오는 예약'), findsOneWidget);
+    await tester.tap(find.text('멍멍미용'));
+    await tester.pumpAndSettle();
+    // 확인 창: 내용과 세 버튼
+    expect(find.text('발톱도 부탁'), findsOneWidget);
+    expect(find.text('40,000원'), findsOneWidget);
+    expect(find.text('수정'), findsOneWidget);
+    expect(find.text('완료 처리'), findsOneWidget);
+    expect(find.text('삭제'), findsOneWidget);
+    // 완료 처리: 다가오는 예약에서 빠지고, 사진은 그대로 남는다
+    await tester.tap(find.text('완료 처리'));
+    await tester.pumpAndSettle();
+    expect(find.text('다가오는 예약'), findsNothing);
+    final kept = await LocalVisitStore().loadPhotos('u1');
+    expect(kept.single.label, '미용 전');
+    expect((await LocalVisitStore().load()).single.status, '완료');
+  });
+
+  testWidgets('병원·미용 목록에서 기록 삭제', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'visits_v1': jsonEncode([
+        const Visit(
+          id: 'a',
+          date: '2026-09-01',
+          placeName: '보듬동물병원',
+          amount: 20000,
+        ).toMap(),
+      ]),
+    });
+    await tester.pumpWidget(ChioApp(store: LocalProfileStore()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('병원·미용'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('보듬동물병원'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, '삭제'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '삭제'));
+    await tester.pumpAndSettle();
+    expect(find.text('보듬동물병원'), findsNothing);
+    expect(await LocalVisitStore().load(), isEmpty);
+  });
+
   test('D-day 문구', () {
     final today = DateTime(2026, 10, 7);
     expect(ddayText('2026-10-10', today), 'D-3');
