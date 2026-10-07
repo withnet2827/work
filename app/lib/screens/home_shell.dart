@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../data/diary_store.dart';
 import '../data/profile_store.dart';
 import '../models/pet_profile.dart';
 import '../widgets_pet_avatar.dart';
+import 'diary_screen.dart';
 import 'profile_edit_screen.dart';
 import 'profile_screen.dart';
 
@@ -24,8 +26,14 @@ class FamilyInfo {
 
 /// 하단 탭 4개: 홈 · 일기 · 병원/미용 · 프로필
 class HomeShell extends StatefulWidget {
-  const HomeShell({super.key, required this.store, this.familyInfo});
+  const HomeShell({
+    super.key,
+    required this.store,
+    this.diaryStore,
+    this.familyInfo,
+  });
   final ProfileStore store;
+  final DiaryStore? diaryStore;
   final FamilyInfo? familyInfo;
 
   @override
@@ -34,6 +42,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
+  late final DiaryStore _diaryStore = widget.diaryStore ?? LocalDiaryStore();
   PetProfile _profile = const PetProfile();
   bool _loading = true;
 
@@ -127,7 +136,12 @@ class _HomeShellState extends State<HomeShell> {
     }
     final pages = <Widget>[
       _HomeTab(profile: _profile),
-      const _ComingSoon(title: '일기', note: '다음 단계(1-B)에서 만듭니다.'),
+      DiaryScreen(
+        store: _diaryStore,
+        authorName: widget.familyInfo?.userLabel.isNotEmpty == true
+            ? widget.familyInfo!.userLabel
+            : '나',
+      ),
       const _ComingSoon(title: '병원·미용', note: '그 다음 단계(1-C)에서 만듭니다.'),
       ProfileScreen(profile: _profile, onEdit: _edit, onChanged: _update),
     ];

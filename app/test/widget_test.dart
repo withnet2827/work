@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:chio_daily/data/profile_store.dart';
 import 'package:chio_daily/main.dart';
 import 'package:chio_daily/models/attachment.dart';
+import 'package:chio_daily/models/diary_entry.dart';
+import 'package:chio_daily/data/diary_store.dart';
 import 'package:chio_daily/models/pet_profile.dart';
 import 'package:chio_daily/models/place.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -56,6 +58,44 @@ void main() {
     final r = PetProfile.fromJson(p.toJson());
     expect(r.places.single.attachments.single.label, '미용 전');
     expect(r.places.single.attachments.single.date, '2026-10-07');
+  });
+
+  test('일기 저장·정렬·삭제(로컬)', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalDiaryStore();
+    await store.save(
+      const DiaryEntry(
+        id: 'a',
+        date: '2026-10-01',
+        body: '첫째',
+        photos: ['AAAA'],
+      ),
+    );
+    await store.save(
+      const DiaryEntry(id: 'b', date: '2026-10-05', body: '둘째', mood: '😊'),
+    );
+    var list = await store.load();
+    expect(list.map((e) => e.id), ['b', 'a']);
+    expect(list.last.photos, ['AAAA']);
+    await store.save(list.first.copyWith(body: '수정'));
+    await store.delete('a');
+    list = await store.load();
+    expect(list.single.body, '수정');
+  });
+
+  testWidgets('일기 탭에서 일기 쓰기', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(ChioApp(store: LocalProfileStore()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('일기'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('아직 일기가 없어요'), findsOneWidget);
+    await tester.tap(find.text('일기 쓰기'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '오늘 공원 산책!');
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    expect(find.text('오늘 공원 산책!'), findsOneWidget);
   });
 
   test('이전 버전 병원·미용실 필드 이전', () {

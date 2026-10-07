@@ -11,10 +11,12 @@ class AttachmentViewerScreen extends StatefulWidget {
     required this.attachments,
     required this.initialIndex,
     required this.onDelete,
+    this.canDelete = true,
   });
   final List<Attachment> attachments;
   final int initialIndex;
   final ValueChanged<Attachment> onDelete;
+  final bool canDelete;
 
   @override
   State<AttachmentViewerScreen> createState() => _AttachmentViewerScreenState();
