@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/profile_store.dart';
 import '../models/pet_profile.dart';
+import '../widgets_pet_avatar.dart';
 import 'profile_edit_screen.dart';
 import 'profile_screen.dart';
 
@@ -40,6 +41,11 @@ class _HomeShellState extends State<HomeShell> {
     if (mounted) setState(() => _profile = result);
   }
 
+  Future<void> _update(PetProfile p) async {
+    await widget.store.save(p);
+    if (mounted) setState(() => _profile = p);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -49,7 +55,7 @@ class _HomeShellState extends State<HomeShell> {
       _HomeTab(profile: _profile),
       const _ComingSoon(title: '일기', note: '다음 단계(1-B)에서 만듭니다.'),
       const _ComingSoon(title: '병원·미용', note: '그 다음 단계(1-C)에서 만듭니다.'),
-      ProfileScreen(profile: _profile, onEdit: _edit),
+      ProfileScreen(profile: _profile, onEdit: _edit, onChanged: _update),
     ];
     return Scaffold(
       appBar: AppBar(title: Text('${_profile.name} 데일리')),
@@ -84,7 +90,7 @@ class _HomeTab extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                const CircleAvatar(radius: 44, child: Icon(Icons.pets, size: 44)),
+                PetAvatar(profile: profile, radius: 52),
                 const SizedBox(height: 12),
                 Text(profile.name, style: Theme.of(context).textTheme.headlineSmall),
                 if (age.isNotEmpty) Text(age),

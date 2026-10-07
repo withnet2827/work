@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'place.dart';
+
 /// 반려견 프로필. 1단계에서는 단말 로컬에 저장하고, 이후 Firestore로 교체한다.
 class PetProfile {
   const PetProfile({
@@ -12,10 +14,8 @@ class PetProfile {
     this.registrationNo = '',
     this.allergies = '',
     this.notes = '',
-    this.clinicName = '',
-    this.clinicPhone = '',
-    this.groomerName = '',
-    this.groomerPhone = '',
+    this.photoBase64 = '',
+    this.places = const [],
   });
 
   final String name;
@@ -27,10 +27,8 @@ class PetProfile {
   final String registrationNo;
   final String allergies;
   final String notes;
-  final String clinicName;
-  final String clinicPhone;
-  final String groomerName;
-  final String groomerPhone;
+  final String photoBase64; // 대표 사진(축소본). 드라이브 연동 후 파일 ID로 교체 예정
+  final List<Place> places;
 
   PetProfile copyWith({
     String? name,
@@ -42,10 +40,8 @@ class PetProfile {
     String? registrationNo,
     String? allergies,
     String? notes,
-    String? clinicName,
-    String? clinicPhone,
-    String? groomerName,
-    String? groomerPhone,
+    String? photoBase64,
+    List<Place>? places,
   }) =>
       PetProfile(
         name: name ?? this.name,
@@ -57,10 +53,8 @@ class PetProfile {
         registrationNo: registrationNo ?? this.registrationNo,
         allergies: allergies ?? this.allergies,
         notes: notes ?? this.notes,
-        clinicName: clinicName ?? this.clinicName,
-        clinicPhone: clinicPhone ?? this.clinicPhone,
-        groomerName: groomerName ?? this.groomerName,
-        groomerPhone: groomerPhone ?? this.groomerPhone,
+        photoBase64: photoBase64 ?? this.photoBase64,
+        places: places ?? this.places,
       );
 
   Map<String, dynamic> toMap() => {
@@ -73,27 +67,44 @@ class PetProfile {
         'registrationNo': registrationNo,
         'allergies': allergies,
         'notes': notes,
-        'clinicName': clinicName,
-        'clinicPhone': clinicPhone,
-        'groomerName': groomerName,
-        'groomerPhone': groomerPhone,
+        'photoBase64': photoBase64,
+        'places': places.map((e) => e.toMap()).toList(),
       };
 
-  factory PetProfile.fromMap(Map<String, dynamic> m) => PetProfile(
-        name: m['name'] as String? ?? '치오',
-        gender: m['gender'] as String? ?? '',
-        neutered: m['neutered'] as bool? ?? false,
-        birthDate: m['birthDate'] as String? ?? '',
-        adoptionDate: m['adoptionDate'] as String? ?? '',
-        breed: m['breed'] as String? ?? '',
-        registrationNo: m['registrationNo'] as String? ?? '',
-        allergies: m['allergies'] as String? ?? '',
-        notes: m['notes'] as String? ?? '',
-        clinicName: m['clinicName'] as String? ?? '',
-        clinicPhone: m['clinicPhone'] as String? ?? '',
-        groomerName: m['groomerName'] as String? ?? '',
-        groomerPhone: m['groomerPhone'] as String? ?? '',
-      );
+  factory PetProfile.fromMap(Map<String, dynamic> m) {
+    final places = <Place>[
+      for (final e in (m['places'] as List? ?? const []))
+        Place.fromMap(Map<String, dynamic>.from(e as Map)),
+    ];
+    // 이전 버전(병원·미용실 고정 필드) 데이터 이전
+    void legacy(String category, String? name, String? phone) {
+      if ((name ?? '').isEmpty && (phone ?? '').isEmpty) return;
+      places.add(Place(
+        id: 'legacy-$category',
+        category: category,
+        name: name ?? '',
+        phone: phone ?? '',
+      ));
+    }
+
+    if (m['places'] == null) {
+      legacy('병원', m['clinicName'] as String?, m['clinicPhone'] as String?);
+      legacy('미용실', m['groomerName'] as String?, m['groomerPhone'] as String?);
+    }
+    return PetProfile(
+      name: m['name'] as String? ?? '치오',
+      gender: m['gender'] as String? ?? '',
+      neutered: m['neutered'] as bool? ?? false,
+      birthDate: m['birthDate'] as String? ?? '',
+      adoptionDate: m['adoptionDate'] as String? ?? '',
+      breed: m['breed'] as String? ?? '',
+      registrationNo: m['registrationNo'] as String? ?? '',
+      allergies: m['allergies'] as String? ?? '',
+      notes: m['notes'] as String? ?? '',
+      photoBase64: m['photoBase64'] as String? ?? '',
+      places: places,
+    );
+  }
 
   String toJson() => jsonEncode(toMap());
   factory PetProfile.fromJson(String s) =>
