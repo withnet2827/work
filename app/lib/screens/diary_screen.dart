@@ -29,6 +29,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
   List<DiaryEntry> _entries = [];
   bool _loading = true;
   String? _error;
+  String _query = '';
 
   @override
   void initState() {
@@ -54,6 +55,21 @@ class _DiaryScreenState extends State<DiaryScreen> {
         });
       }
     }
+  }
+
+  /// 검색어(공백으로 나눈 모든 단어)가 날짜·본문·작성자·산책 장소/메모·급여 메모에 있으면 일치.
+  bool _matches(DiaryEntry e) {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    final hay = [
+      e.date,
+      e.body,
+      e.author,
+      e.mood,
+      for (final w in e.walks) '${w.place} ${w.memo}',
+      for (final f in e.feeds) '${f.kind} ${f.memo}',
+    ].join(' ').toLowerCase();
+    return q.split(RegExp(r'\s+')).every(hay.contains);
   }
 
   Future<void> _open(DiaryEntry entry, {required bool isNew}) async {
@@ -160,9 +176,34 @@ class _DiaryScreenState extends State<DiaryScreen> {
         ),
       );
     } else {
-      final children = <Widget>[];
+      final shown = _entries.where(_matches).toList();
+      final children = <Widget>[
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: TextField(
+            onChanged: (v) => setState(() => _query = v),
+            decoration: InputDecoration(
+              hintText: '일기 검색 (내용, 날짜 2026-09, 장소 등)',
+              prefixIcon: const Icon(Icons.search),
+              border: const OutlineInputBorder(),
+              isDense: true,
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text('${shown.length}건'),
+                    ),
+            ),
+          ),
+        ),
+        if (shown.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 48),
+            child: Center(child: Text('검색 결과가 없어요.')),
+          ),
+      ];
       String month = '';
-      for (final e in _entries) {
+      for (final e in shown) {
         final m = e.date.length >= 7 ? e.date.substring(0, 7) : e.date;
         if (m != month) {
           month = m;
