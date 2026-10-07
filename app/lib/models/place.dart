@@ -1,3 +1,5 @@
+import 'attachment.dart';
+
 /// 치오와 관련된 장소(병원, 미용실 등). 주소는 지도 앱 검색에 사용한다.
 class Place {
   const Place({
@@ -7,6 +9,7 @@ class Place {
     this.phone = '',
     this.address = '',
     this.memo = '',
+    this.attachments = const [],
   });
 
   static const categories = ['병원', '미용실', '약국', '펫호텔·유치원', '용품점', '기타'];
@@ -17,11 +20,12 @@ class Place {
   final String phone;
   final String address;
   final String memo;
+  final List<Attachment> attachments;
 
   /// 지도 검색어: 주소가 있으면 주소, 없으면 이름.
   String get mapQuery => address.isNotEmpty ? address : name;
 
-  Place copyWith({String? category, String? name, String? phone, String? address, String? memo}) =>
+  Place copyWith({String? category, String? name, String? phone, String? address, String? memo, List<Attachment>? attachments}) =>
       Place(
         id: id,
         category: category ?? this.category,
@@ -29,6 +33,7 @@ class Place {
         phone: phone ?? this.phone,
         address: address ?? this.address,
         memo: memo ?? this.memo,
+        attachments: attachments ?? this.attachments,
       );
 
   Map<String, dynamic> toMap() => {
@@ -38,6 +43,7 @@ class Place {
         'phone': phone,
         'address': address,
         'memo': memo,
+        'attachments': attachments.map((e) => e.toMap()).toList(),
       };
 
   factory Place.fromMap(Map<String, dynamic> m) => Place(
@@ -47,5 +53,9 @@ class Place {
         phone: m['phone'] as String? ?? '',
         address: m['address'] as String? ?? '',
         memo: m['memo'] as String? ?? '',
+        attachments: [
+          for (final e in (m['attachments'] as List? ?? const []))
+            Attachment.fromMap(Map<String, dynamic>.from(e as Map)),
+        ],
       );
 }

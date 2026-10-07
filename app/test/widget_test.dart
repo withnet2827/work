@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:chio_daily/data/profile_store.dart';
 import 'package:chio_daily/main.dart';
+import 'package:chio_daily/models/attachment.dart';
 import 'package:chio_daily/models/pet_profile.dart';
 import 'package:chio_daily/models/place.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +26,17 @@ void main() {
     expect(r.registrationNo, p.registrationNo);
     expect(r.places.single.memo, '야간 진료');
     expect(r.places.single.mapQuery, '서울 강남구');
+  });
+
+  test('장소 첨부 사진 저장 왕복', () {
+    const p = PetProfile(places: [
+      Place(id: '1', name: '미용실', attachments: [
+        Attachment(id: 'a', photoBase64: 'AAAA', label: '미용 전', date: '2026-10-07'),
+      ]),
+    ]);
+    final r = PetProfile.fromJson(p.toJson());
+    expect(r.places.single.attachments.single.label, '미용 전');
+    expect(r.places.single.attachments.single.date, '2026-10-07');
   });
 
   test('이전 버전 병원·미용실 필드 이전', () {

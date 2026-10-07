@@ -37,12 +37,21 @@ class _HomeShellState extends State<HomeShell> {
       MaterialPageRoute(builder: (_) => ProfileEditScreen(initial: _profile)),
     );
     if (result == null) return;
-    await widget.store.save(result);
-    if (mounted) setState(() => _profile = result);
+    await _update(result);
   }
 
   Future<void> _update(PetProfile p) async {
-    await widget.store.save(p);
+    try {
+      await widget.store.save(p);
+    } catch (_) {
+      // 브라우저 저장 용량 초과 등. 화면 값은 바꾸지 않고 안내한다.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('저장 공간이 부족해 저장하지 못했습니다. 사진을 줄여 주세요.'),
+        ));
+      }
+      return;
+    }
     if (mounted) setState(() => _profile = p);
   }
 

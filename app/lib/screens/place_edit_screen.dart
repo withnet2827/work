@@ -31,6 +31,7 @@ class _PlaceEditScreenState extends State<PlaceEditScreen> {
     if (!_form.currentState!.validate()) return;
     Navigator.of(context).pop(Place(
       id: widget.initial?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+      attachments: widget.initial?.attachments ?? const [],
       category: _category,
       name: _name.text.trim(),
       phone: _phone.text.trim(),
