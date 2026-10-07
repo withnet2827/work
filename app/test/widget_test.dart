@@ -155,12 +155,49 @@ void main() {
     expect(find.textContaining('아직 기록이 없어요'), findsOneWidget);
     await tester.tap(find.text('기록 추가'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, '장소'), '행복동물병원');
+    await tester.enterText(find.widgetWithText(TextField, '장소 이름'), '행복동물병원');
     await tester.enterText(find.widgetWithText(TextField, '금액(원)'), '35000');
     await tester.tap(find.text('저장'));
     await tester.pumpAndSettle();
     expect(find.text('행복동물병원'), findsOneWidget);
     expect(find.textContaining('35,000원'), findsWidgets);
+  });
+
+  testWidgets('방문 기록: 등록된 장소를 선택하고 다른 곳도 직접 입력', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'pet_profile_v1': const PetProfile(
+        places: [
+          Place(id: 'h1', category: '병원', name: '보듬동물병원'),
+          Place(id: 'g1', category: '미용실', name: '멍멍미용'),
+        ],
+      ).toJson(),
+    });
+    await tester.pumpWidget(ChioApp(store: LocalProfileStore()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('병원·미용'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('기록 추가'));
+    await tester.pumpAndSettle();
+    // 병원 구분: 병원 장소만 선택지로 보인다
+    expect(find.text('보듬동물병원'), findsOneWidget);
+    expect(find.text('멍멍미용'), findsNothing);
+    expect(find.widgetWithText(TextField, '장소 이름'), findsNothing);
+    // 직접 입력을 누르면 입력칸이 열린다
+    await tester.tap(find.text('다른 곳 직접 입력'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, '장소 이름'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, '장소 이름'), '새로운병원');
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    expect(find.text('새로운병원'), findsOneWidget);
+    // 이번에는 등록된 장소 선택
+    await tester.tap(find.text('기록 추가'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('보듬동물병원'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    expect(find.text('보듬동물병원'), findsOneWidget);
   });
 
   test('이전 버전 병원·미용실 필드 이전', () {

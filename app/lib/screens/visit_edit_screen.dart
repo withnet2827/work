@@ -48,6 +48,7 @@ class _VisitEditScreenState extends State<VisitEditScreen> {
     text: widget.visit.prescription,
   );
   late final _memo = TextEditingController(text: widget.visit.memo);
+  late bool _direct; // 등록된 장소가 아닌 곳을 직접 입력하는 중
   List<Attachment> _photos = [];
   bool _photosLoaded = false;
   bool _busy = false;
@@ -55,6 +56,21 @@ class _VisitEditScreenState extends State<VisitEditScreen> {
   @override
   void initState() {
     super.initState();
+    // 저장된 장소가 등록 목록과 일치하면 그 장소를 선택 상태로, 아니면 직접 입력 상태로 연다.
+    final v = widget.visit;
+    final match = widget.places.where(
+      (p) =>
+          p.id == v.placeId ||
+          (v.placeId.isEmpty &&
+              p.name == v.placeName &&
+              v.placeName.isNotEmpty),
+    );
+    if (match.isNotEmpty) {
+      _placeId = match.first.id;
+      _direct = false;
+    } else {
+      _direct = v.placeName.isNotEmpty || _matchingPlaces.isEmpty;
+    }
     if (widget.isNew) {
       _photosLoaded = true;
     } else {
@@ -351,7 +367,10 @@ class _VisitEditScreenState extends State<VisitEditScreen> {
             selected: {_type},
             onSelectionChanged: (s) => setState(() {
               _type = s.first;
-              _placeId = '';
+              if (!_direct) {
+                _placeId = '';
+                _placeName.clear();
+              }
             }),
           ),
           gap,
@@ -387,29 +406,54 @@ class _VisitEditScreenState extends State<VisitEditScreen> {
             ],
           ),
           gap,
-          TextField(
-            controller: _placeName,
-            decoration: const InputDecoration(
-              labelText: '장소',
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (_) => _placeId = '',
+          Text('장소', style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (final p in matching)
+                ChoiceChip(
+                  avatar: const Icon(Icons.place_outlined, size: 16),
+                  label: Text(p.name),
+                  selected: !_direct && _placeId == p.id,
+                  onSelected: (v) => setState(() {
+                    _direct = false;
+                    _placeId = v ? p.id : '';
+                    _placeName.text = v ? p.name : '';
+                  }),
+                ),
+              ChoiceChip(
+                avatar: const Icon(Icons.edit_location_alt_outlined, size: 16),
+                label: const Text('다른 곳 직접 입력'),
+                selected: _direct,
+                onSelected: (v) => setState(() {
+                  _direct = v;
+                  if (v) {
+                    // 등록된 장소 이름이 남아 있으면 비우고 새로 입력하게 한다.
+                    _placeId = '';
+                    _placeName.clear();
+                  }
+                }),
+              ),
+            ],
           ),
-          if (matching.isNotEmpty) ...[
+          if (matching.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '프로필 탭에서 병원·미용실을 등록해 두면 여기에서 바로 고를 수 있어요.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          if (_direct) ...[
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final p in matching)
-                  ActionChip(
-                    avatar: const Icon(Icons.place_outlined, size: 16),
-                    label: Text(p.name),
-                    onPressed: () => setState(() {
-                      _placeId = p.id;
-                      _placeName.text = p.name;
-                    }),
-                  ),
-              ],
+            TextField(
+              controller: _placeName,
+              decoration: const InputDecoration(
+                labelText: '장소 이름',
+                border: OutlineInputBorder(),
+              ),
             ),
           ],
           gap,
