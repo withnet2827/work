@@ -200,6 +200,48 @@ void main() {
     expect(find.text('보듬동물병원'), findsOneWidget);
   });
 
+  testWidgets('직접 입력한 장소를 프로필 장소로도 저장', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(ChioApp(store: LocalProfileStore()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('병원·미용'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('기록 추가'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '장소 이름'), '새벽동물병원');
+    await tester.tap(find.text('프로필 장소로도 저장'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    // 프로필 탭의 장소 목록에 추가되었다
+    await tester.tap(find.text('프로필'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('새벽동물병원'), 300);
+    expect(find.text('새벽동물병원'), findsOneWidget);
+    // 다음 기록에서는 선택 버튼으로 나타난다
+    await tester.tap(find.text('병원·미용'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('기록 추가'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ChoiceChip, '새벽동물병원'), findsOneWidget);
+  });
+
+  testWidgets('체크하지 않으면 프로필 장소에 추가되지 않는다', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(ChioApp(store: LocalProfileStore()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('병원·미용'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('기록 추가'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, '장소 이름'), '임시병원');
+    await tester.tap(find.text('저장'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('기록 추가'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ChoiceChip, '임시병원'), findsNothing);
+  });
+
   test('이전 버전 병원·미용실 필드 이전', () {
     final r = PetProfile.fromMap({
       'name': '치오',

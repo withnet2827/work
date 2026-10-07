@@ -19,6 +19,7 @@ class VisitEditScreen extends StatefulWidget {
     required this.places,
     required this.store,
     required this.onSave,
+    required this.onAddPlace,
     this.onDelete,
   });
   final Visit visit;
@@ -26,6 +27,9 @@ class VisitEditScreen extends StatefulWidget {
   final List<Place> places;
   final VisitStore store;
   final Future<void> Function(Visit) onSave;
+
+  /// 직접 입력한 장소를 프로필 장소 목록에 추가한다.
+  final Future<void> Function(Place) onAddPlace;
   final Future<void> Function()? onDelete;
 
   @override
@@ -48,6 +52,7 @@ class _VisitEditScreenState extends State<VisitEditScreen> {
     text: widget.visit.prescription,
   );
   late final _memo = TextEditingController(text: widget.visit.memo);
+  bool _saveAsPlace = false; // 직접 입력한 장소를 프로필 장소로도 저장
   late bool _direct; // 등록된 장소가 아닌 곳을 직접 입력하는 중
   List<Attachment> _photos = [];
   bool _photosLoaded = false;
@@ -240,14 +245,34 @@ class _VisitEditScreenState extends State<VisitEditScreen> {
     }
     setState(() => _busy = true);
     try {
+      var placeId = _placeId;
+      final name = _placeName.text.trim();
+      if (_direct && name.isNotEmpty) {
+        final category = _placeCategory.isEmpty ? '기타' : _placeCategory;
+        final same = widget.places.where(
+          (p) => p.name == name && p.category == category,
+        );
+        if (same.isNotEmpty) {
+          // 이미 등록된 장소와 같으면 중복 등록하지 않고 연결만 한다.
+          placeId = same.first.id;
+        } else if (_saveAsPlace) {
+          final place = Place(
+            id: DateTime.now().microsecondsSinceEpoch.toString(),
+            category: category,
+            name: name,
+          );
+          await widget.onAddPlace(place);
+          placeId = place.id;
+        }
+      }
       await widget.onSave(
         widget.visit.copyWith(
           type: _type,
           status: _status,
           date: _date,
           time: _time,
-          placeId: _placeId,
-          placeName: _placeName.text.trim(),
+          placeId: placeId,
+          placeName: name,
           amount: amount ?? 0,
           detail: _detail.text.trim(),
           prescription: _type == '병원' ? _prescription.text.trim() : '',
@@ -454,6 +479,14 @@ class _VisitEditScreenState extends State<VisitEditScreen> {
                 labelText: '장소 이름',
                 border: OutlineInputBorder(),
               ),
+            ),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: const Text('프로필 장소로도 저장'),
+              subtitle: const Text('다음부터 선택 버튼으로 고를 수 있어요'),
+              value: _saveAsPlace,
+              onChanged: (v) => setState(() => _saveAsPlace = v ?? false),
             ),
           ],
           gap,

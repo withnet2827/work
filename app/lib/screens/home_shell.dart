@@ -174,6 +174,8 @@ class _HomeShellState extends State<HomeShell> {
             ? widget.familyInfo!.userLabel
             : '나',
         onChanged: _loadVisits,
+        onAddPlace: (p) =>
+            _update(_profile.copyWith(places: [..._profile.places, p])),
       ),
       ProfileScreen(profile: _profile, onEdit: _edit, onChanged: _update),
     ];

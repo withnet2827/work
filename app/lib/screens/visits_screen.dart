@@ -16,12 +16,14 @@ class VisitsScreen extends StatefulWidget {
     required this.places,
     required this.authorName,
     required this.onChanged,
+    required this.onAddPlace,
   });
   final VisitStore store;
   final List<Visit> visits;
   final List<Place> places;
   final String authorName;
   final Future<void> Function() onChanged; // 저장·삭제 후 목록 새로고침
+  final Future<void> Function(Place) onAddPlace; // 직접 입력한 장소를 프로필에 추가
 
   @override
   State<VisitsScreen> createState() => _VisitsScreenState();
@@ -39,6 +41,7 @@ class _VisitsScreenState extends State<VisitsScreen> {
           isNew: isNew,
           places: widget.places,
           store: widget.store,
+          onAddPlace: widget.onAddPlace,
           onSave: (e) async {
             await widget.store.save(e);
             await widget.onChanged();
