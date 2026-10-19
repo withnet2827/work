@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../ai/stool_analyzer.dart';
 import '../data/change_source.dart';
 import '../data/record_store.dart';
 import '../models/stool_log.dart';
@@ -196,6 +197,7 @@ class _StoolSectionState extends State<StoolSection> {
                       StoolLog.scoreLabels[s.score] ?? '',
                       if (s.flags.isNotEmpty) s.flags.join(', '),
                       if (s.memo.isNotEmpty) s.memo,
+                      if (s.ai.isNotEmpty) s.ai,
                     ].where((e) => e.isNotEmpty).join(' · '),
                   ),
                   trailing: IconButton(
@@ -242,6 +244,10 @@ class _StoolFormState extends State<_StoolForm> {
   late final Set<String> _flags = {...widget.initial.flags};
   late String _photo = widget.initial.photo;
   late final _memo = TextEditingController(text: widget.initial.memo);
+  late String _ai = widget.initial.ai;
+  StoolAnalysis? _analysis;
+  bool _analyzing = false;
+  String? _aiError;
 
   @override
   void dispose() {
@@ -279,7 +285,49 @@ class _StoolFormState extends State<_StoolForm> {
     if (x == null) return;
     // 기록이 많아져도 가볍도록 작게 줄인다(약 100KB).
     final b64 = compressPhoto(await x.readAsBytes(), targetChars: 140000);
-    if (mounted) setState(() => _photo = b64);
+    if (mounted) {
+      setState(() {
+        _photo = b64;
+        _analysis = null;
+        _ai = '';
+        _aiError = null;
+      });
+    }
+  }
+
+  Future<void> _analyze() async {
+    setState(() {
+      _analyzing = true;
+      _aiError = null;
+    });
+    try {
+      final a = await analyzeStoolPhoto(_photo);
+      if (mounted) {
+        setState(() {
+          _analysis = a;
+          _ai = a.note;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(
+          () => _aiError =
+              'AI 분석에 실패했어요. 잠시 뒤 다시 시도해 주세요.\n$e',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _analyzing = false);
+    }
+  }
+
+  void _applyAnalysis(StoolAnalysis a) {
+    setState(() {
+      _score = a.score;
+      _color = a.color;
+      _flags
+        ..clear()
+        ..addAll(a.flags);
+    });
   }
 
   @override
@@ -391,6 +439,71 @@ class _StoolFormState extends State<_StoolForm> {
                   ),
               ],
             ),
+            if (_photo.isNotEmpty && stoolAiAvailable) ...[
+              const SizedBox(height: 8),
+              FilledButton.tonalIcon(
+                onPressed: _analyzing ? null : _analyze,
+                icon: _analyzing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_awesome),
+                label: Text(_analyzing ? '분석 중...' : 'AI로 사진 분석'),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '사진이 구글 AI(Gemini)로 전송돼 분석돼요. 참고용이며 진단이 아니에요.',
+                  style: text.bodySmall,
+                ),
+              ),
+            ],
+            if (_aiError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _aiError!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            if (_analysis case final a?)
+              Card(
+                margin: const EdgeInsets.only(top: 8),
+                color: a.concern == '병원 상담'
+                    ? Theme.of(context).colorScheme.errorContainer
+                    : Theme.of(context).colorScheme.secondaryContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'AI 참고 의견 · ${a.concern}',
+                        style: text.titleSmall,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '점수 ${a.score} · ${a.color}'
+                        '${a.flags.isEmpty ? '' : ' · ${a.flags.join(', ')}'}',
+                      ),
+                      if (a.summary.isNotEmpty) Text(a.summary),
+                      if (a.advice.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(a.advice, style: text.bodySmall),
+                      ],
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => _applyAnalysis(a),
+                          child: const Text('이 결과를 점수·색에 적용'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             const SizedBox(height: 12),
             TextField(
               controller: _memo,
@@ -419,6 +532,7 @@ class _StoolFormState extends State<_StoolForm> {
                           .toList(),
                       memo: _memo.text.trim(),
                       photo: _photo,
+                      ai: _photo.isEmpty ? '' : _ai,
                     ),
                   ),
                   child: const Text('저장'),

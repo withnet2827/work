@@ -9,6 +9,8 @@ import 'package:chio_daily/backup/restore_service.dart';
 import 'package:chio_daily/data/record_store.dart';
 import 'package:chio_daily/models/health_record.dart';
 import 'package:chio_daily/models/weight_log.dart';
+import 'package:chio_daily/models/stool_log.dart';
+import 'package:chio_daily/ai/stool_analyzer.dart';
 import 'package:chio_daily/backup/backup_service.dart';
 
 import 'dart:convert';
@@ -988,5 +990,32 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('행복동물병원'), 300);
     expect(find.text('행복동물병원'), findsOneWidget);
+  });
+
+  test('배변 기록: 주의 판정과 최근 주의 목록', () {
+    const ok = StoolLog(id: '1', date: '2026-10-19', score: 3);
+    const loose = StoolLog(id: '2', date: '2026-10-18', score: 6);
+    const blood = StoolLog(id: '3', date: '2026-10-19', color: '붉은 피');
+    const old = StoolLog(id: '4', date: '2026-10-10', score: 7);
+    expect(ok.needsAttention, false);
+    expect(loose.needsAttention, true);
+    expect(blood.urgent, true);
+    final r = StoolLog.recentAttention([ok, loose, blood, old], '2026-10-19');
+    expect(r.map((e) => e.id).toSet(), {'2', '3'});
+    expect(StoolLog.fromMap(loose.toMap()).score, 6);
+  });
+
+  test('AI 응답 해석: 정상 JSON·코드블록·잘못된 값 보정', () {
+    final a = StoolAnalysis.parse(
+      '```json\n{"score":9,"color":"파랑","flags":["점액","없는것"],'
+      '"concern":"병원 상담","summary":"묽어요","advice":"지켜보세요"}\n```',
+    );
+    expect(a, isNotNull);
+    expect(a!.score, 7); // 범위 밖은 7로 맞춤
+    expect(a.color, '갈색'); // 모르는 색은 기본값
+    expect(a.flags, ['점액']);
+    expect(a.concern, '병원 상담');
+    expect(StoolAnalysis.parse('JSON 아님'), isNull);
+    expect(StoolAnalysis.parse(null), isNull);
   });
 }

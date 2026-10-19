@@ -8,6 +8,7 @@ class StoolLog {
     this.flags = const [],
     this.memo = '',
     this.photo = '',
+    this.ai = '',
     this.author = '',
     this.createdAt = 0,
   });
@@ -32,6 +33,7 @@ class StoolLog {
   final List<String> flags;
   final String memo;
   final String photo; // 작게 압축한 base64
+  final String ai; // AI 참고 의견 한 줄(없으면 빈 문자열)
   final String author;
   final int createdAt;
 
@@ -55,6 +57,7 @@ class StoolLog {
     List<String>? flags,
     String? memo,
     String? photo,
+    String? ai,
   }) => StoolLog(
     id: id,
     date: date ?? this.date,
@@ -63,6 +66,7 @@ class StoolLog {
     flags: flags ?? this.flags,
     memo: memo ?? this.memo,
     photo: photo ?? this.photo,
+    ai: ai ?? this.ai,
     author: author,
     createdAt: createdAt,
   );
@@ -75,6 +79,7 @@ class StoolLog {
     'flags': flags,
     'memo': memo,
     'photo': photo,
+    'ai': ai,
     'author': author,
     'createdAt': createdAt,
   };
@@ -87,6 +92,7 @@ class StoolLog {
     flags: [for (final f in (m['flags'] as List? ?? const [])) '$f'],
     memo: m['memo'] as String? ?? '',
     photo: m['photo'] as String? ?? '',
+    ai: m['ai'] as String? ?? '',
     author: m['author'] as String? ?? '',
     createdAt: (m['createdAt'] as num?)?.toInt() ?? 0,
   );
