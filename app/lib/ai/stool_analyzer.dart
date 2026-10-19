@@ -59,10 +59,10 @@ class StoolAnalysis {
   }
 }
 
-/// 사용할 Gemini 모델. 오류 문구에 "no longer available"이 나오면 이 값만 최신 이름으로 바꾸면 된다.
 /// 어떤 빌드가 실행 중인지 오류 화면에서 확인하기 위한 표시.
-const appBuildTag = 'b1019-m38';
+const appBuildTag = 'b1019-m38-t60';
 
+/// 사용할 Gemini 모델. 오류 문구에 "no longer available"이 나오면 이 값만 최신 이름으로 바꾸면 된다.
 const stoolAiModel = 'gemini-3.8-flash';
 
 const _prompt = '''
