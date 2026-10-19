@@ -13,7 +13,7 @@ class FirebaseConfig {
 
   /// 앱 체크용 reCAPTCHA v3 사이트 키(공개 값). 비어 있으면 앱 체크를 켜지 않는다.
   /// 발급·등록 방법: docs/앱체크-설정-가이드.md
-  static const recaptchaSiteKey = '';
+  static const recaptchaSiteKey = '6LfymvUtAAAAAH7gSZWYQkpjyjnbz42ZKa1YZ7DT';
 
   static bool get configured =>
       apiKey.isNotEmpty && appId.isNotEmpty && projectId.isNotEmpty;
