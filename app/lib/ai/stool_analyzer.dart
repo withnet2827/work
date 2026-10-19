@@ -56,6 +56,9 @@ class StoolAnalysis {
   }
 }
 
+/// 사용할 Gemini 모델. 오류 문구에 "no longer available"이 나오면 이 값만 최신 이름으로 바꾸면 된다.
+const stoolAiModel = 'gemini-3.8-flash';
+
 const _prompt = '''
 당신은 반려견 건강 상담을 돕는 보조자입니다. 사진은 강아지의 대변입니다.
 수의사가 아니므로 진단하지 말고, 사진에서 보이는 것만 근거로 일반적인 참고 의견을 주세요.
@@ -79,7 +82,7 @@ bool get stoolAiAvailable => Firebase.apps.isNotEmpty;
 /// 대변 사진을 Gemini(Firebase AI Logic)로 분석한다. 실패하면 예외를 던진다.
 Future<StoolAnalysis> analyzeStoolPhoto(String photoBase64) async {
   final model = FirebaseAI.googleAI().generativeModel(
-    model: 'gemini-2.5-flash',
+    model: stoolAiModel,
     generationConfig: GenerationConfig(
       responseMimeType: 'application/json',
       temperature: 0.2,
