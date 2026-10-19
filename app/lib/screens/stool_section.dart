@@ -312,7 +312,8 @@ class _StoolFormState extends State<_StoolForm> {
       if (mounted) {
         setState(
           () => _aiError =
-              'AI 분석에 실패했어요. 잠시 뒤 다시 시도해 주세요.\n$e',
+              'AI 분석에 실패했어요. 잠시 뒤 다시 시도해 주세요.\n$e\n'
+              '(앱 빌드 $appBuildTag · 모델 $stoolAiModel)',
         );
       }
     } finally {
