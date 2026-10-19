@@ -60,14 +60,18 @@ class StoolAnalysis {
 }
 
 /// 어떤 빌드가 실행 중인지 오류 화면에서 확인하기 위한 표시.
-const appBuildTag = 'b1019-m38-q2';
+const appBuildTag = 'b1019-lite';
 
 /// 사용할 Gemini 모델. 오류 문구에 "no longer available"이 나오면 이 값만 최신 이름으로 바꾸면 된다.
-const stoolAiModel = 'gemini-3.8-flash';
+const stoolAiModel = 'gemini-3.5-flash-lite';
 
 /// 순서대로 시도할 모델. 앞 모델의 무료 사용량이 끝났거나 쓸 수 없으면 다음 모델로 넘어간다.
 /// 목록의 이름은 콘솔/오류 문구에 나온 것으로 바꿔 쓰면 된다.
-const stoolAiModels = [stoolAiModel, 'gemini-3.8-flash-lite'];
+const stoolAiModels = [
+  stoolAiModel, // 무료 하루 500회
+  'gemini-3.1-flash-lite', // 무료 하루 500회
+  'gemini-3.8-flash', // 무료 하루 20회(최후 수단)
+];
 
 const _prompt = '''
 당신은 반려견 건강 상담을 돕는 보조자입니다. 사진은 강아지의 대변입니다.
