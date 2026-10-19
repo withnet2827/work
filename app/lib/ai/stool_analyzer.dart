@@ -60,7 +60,7 @@ class StoolAnalysis {
 }
 
 /// 어떤 빌드가 실행 중인지 오류 화면에서 확인하기 위한 표시.
-const appBuildTag = 'b1019-m38-t60';
+const appBuildTag = 'b1019-m38-r3';
 
 /// 사용할 Gemini 모델. 오류 문구에 "no longer available"이 나오면 이 값만 최신 이름으로 바꾸면 된다.
 const stoolAiModel = 'gemini-3.8-flash';
@@ -85,7 +85,19 @@ const _prompt = '''
 /// 앱이 Firebase에 연결돼 있을 때만 AI 분석을 쓸 수 있다(로컬 모드에서는 사용 불가).
 bool get stoolAiAvailable => Firebase.apps.isNotEmpty;
 
+/// 일시적인 서버 혼잡·시간 초과(503, UNAVAILABLE, deadline)처럼 다시 시도하면 되는 오류인가.
+bool _isRetryable(Object e) {
+  final m = '$e'.toLowerCase();
+  return e is TimeoutException ||
+      m.contains('503') ||
+      m.contains('unavailable') ||
+      m.contains('deadline') ||
+      m.contains('overloaded') ||
+      m.contains('429');
+}
+
 /// 대변 사진을 Gemini(Firebase AI Logic)로 분석한다. 실패하면 예외를 던진다.
+/// 서버가 일시적으로 바쁘면(503 등) 잠시 기다렸다가 최대 3번까지 다시 시도한다.
 Future<StoolAnalysis> analyzeStoolPhoto(String photoBase64) async {
   // 앱 체크를 켠 경우에만 토큰을 함께 보낸다(키가 비어 있으면 앱 체크를 켜지 않았으므로 null).
   final model = FirebaseAI.googleAI(
@@ -99,22 +111,31 @@ Future<StoolAnalysis> analyzeStoolPhoto(String photoBase64) async {
       temperature: 0.2,
     ),
   );
-  final res = await model
-      .generateContent([
-        Content.multi([
-          TextPart(_prompt),
-          InlineDataPart('image/jpeg', base64Decode(photoBase64)),
-        ]),
-      ])
-      .timeout(
-        const Duration(seconds: 60),
-        onTimeout: () => throw TimeoutException(
-          '60초 안에 응답이 없어요. 앱 체크(reCAPTCHA) 설정이나 네트워크를 확인해 주세요.',
-        ),
-      );
-  final parsed = StoolAnalysis.parse(res.text);
-  if (parsed == null) {
-    throw StateError('AI 응답을 해석하지 못했습니다. 다시 시도해 주세요.');
+  final content = [
+    Content.multi([
+      TextPart(_prompt),
+      InlineDataPart('image/jpeg', base64Decode(photoBase64)),
+    ]),
+  ];
+  const waits = [Duration(seconds: 3), Duration(seconds: 8)];
+  for (var attempt = 0;; attempt++) {
+    try {
+      final res = await model
+          .generateContent(content)
+          .timeout(
+            const Duration(seconds: 45),
+            onTimeout: () => throw TimeoutException(
+              '45초 안에 응답이 없어요. 앱 체크(reCAPTCHA) 설정이나 네트워크를 확인해 주세요.',
+            ),
+          );
+      final parsed = StoolAnalysis.parse(res.text);
+      if (parsed == null) {
+        throw StateError('AI 응답을 해석하지 못했습니다. 다시 시도해 주세요.');
+      }
+      return parsed;
+    } catch (e) {
+      if (attempt >= waits.length || !_isRetryable(e)) rethrow;
+      await Future<void>.delayed(waits[attempt]);
+    }
   }
-  return parsed;
 }
