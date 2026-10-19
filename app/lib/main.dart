@@ -16,7 +16,9 @@ Future<void> main() async {
       // 실패해도 앱 자체는 쓸 수 있게 한다(AI 분석만 막힐 수 있음).
       try {
         await FirebaseAppCheck.instance.activate(
-          webProvider: ReCaptchaV3Provider(FirebaseConfig.recaptchaSiteKey),
+          webProvider: ReCaptchaEnterpriseProvider(
+            FirebaseConfig.recaptchaSiteKey,
+          ),
         );
       } catch (e) {
         debugPrint('앱 체크 활성화 실패: $e');
