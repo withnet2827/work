@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:firebase_ai/firebase_ai.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 
+import '../firebase_config.dart';
 import '../models/stool_log.dart';
 
 /// AI가 사진을 보고 낸 참고용 의견.
@@ -84,19 +87,31 @@ bool get stoolAiAvailable => Firebase.apps.isNotEmpty;
 
 /// 대변 사진을 Gemini(Firebase AI Logic)로 분석한다. 실패하면 예외를 던진다.
 Future<StoolAnalysis> analyzeStoolPhoto(String photoBase64) async {
-  final model = FirebaseAI.googleAI().generativeModel(
+  // 앱 체크를 켠 경우에만 토큰을 함께 보낸다(키가 비어 있으면 앱 체크를 켜지 않았으므로 null).
+  final model = FirebaseAI.googleAI(
+    appCheck: FirebaseConfig.recaptchaSiteKey.isNotEmpty
+        ? FirebaseAppCheck.instance
+        : null,
+  ).generativeModel(
     model: stoolAiModel,
     generationConfig: GenerationConfig(
       responseMimeType: 'application/json',
       temperature: 0.2,
     ),
   );
-  final res = await model.generateContent([
-    Content.multi([
-      TextPart(_prompt),
-      InlineDataPart('image/jpeg', base64Decode(photoBase64)),
-    ]),
-  ]);
+  final res = await model
+      .generateContent([
+        Content.multi([
+          TextPart(_prompt),
+          InlineDataPart('image/jpeg', base64Decode(photoBase64)),
+        ]),
+      ])
+      .timeout(
+        const Duration(seconds: 60),
+        onTimeout: () => throw TimeoutException(
+          '60초 안에 응답이 없어요. 앱 체크(reCAPTCHA) 설정이나 네트워크를 확인해 주세요.',
+        ),
+      );
   final parsed = StoolAnalysis.parse(res.text);
   if (parsed == null) {
     throw StateError('AI 응답을 해석하지 못했습니다. 다시 시도해 주세요.');
