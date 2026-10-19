@@ -11,6 +11,7 @@ import '../data/profile_store.dart';
 import '../data/visit_store.dart';
 import '../models/diary_entry.dart';
 import '../models/health_record.dart';
+import '../models/stool_log.dart';
 import '../models/weight_log.dart';
 import '../models/visit.dart';
 import '../models/week_stats.dart';
@@ -51,6 +52,7 @@ class HomeShell extends StatefulWidget {
     this.diaryStore,
     this.visitStore,
     this.weightStore,
+    this.stoolStore,
     this.healthStore,
     this.familyInfo,
   });
@@ -58,6 +60,7 @@ class HomeShell extends StatefulWidget {
   final DiaryStore? diaryStore;
   final VisitStore? visitStore;
   final RecordStore<WeightLog>? weightStore;
+  final RecordStore<StoolLog>? stoolStore;
   final RecordStore<HealthRecord>? healthStore;
   final FamilyInfo? familyInfo;
 
@@ -86,6 +89,16 @@ class _HomeShellState extends State<HomeShell> {
         fromMap: HealthRecord.fromMap,
         idOf: (e) => e.id,
       );
+  late final RecordStore<StoolLog> _stoolStore =
+      widget.stoolStore ??
+      LocalRecordStore<StoolLog>(
+        key: 'stools_v1',
+        toMap: (e) => e.toMap(),
+        fromMap: StoolLog.fromMap,
+        idOf: (e) => e.id,
+      );
+  List<StoolLog> _stools = [];
+  int _healthInitial = 0; // 홈에서 눌러 들어올 때 열 건강 탭의 하위 탭
   List<HealthRecord> _health = [];
   int _healthNonce = 0; // 홈에서 접종 일정을 눌러 들어올 때마다 올려 건강 탭을 접종 화면으로 연다
   List<Visit> _visits = [];
@@ -102,6 +115,7 @@ class _HomeShellState extends State<HomeShell> {
       ChangeWatcher(_visitStore, _loadVisits),
       ChangeWatcher(_diaryStore, _loadEntries),
       ChangeWatcher(_healthStore, _loadHealth),
+      ChangeWatcher(_stoolStore, _loadStools),
       ChangeWatcher(widget.store, _loadProfile),
     ]);
   }
@@ -135,6 +149,15 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
+  Future<void> _loadStools() async {
+    try {
+      final s = await _stoolStore.load();
+      if (mounted) setState(() => _stools = s);
+    } catch (_) {
+      // 홈의 알림은 보조 정보라 실패해도 배변 화면에서 오류를 보여준다.
+    }
+  }
+
   Future<void> _loadHealth() async {
     try {
       final h = await _healthStore.load();
@@ -157,6 +180,7 @@ class _HomeShellState extends State<HomeShell> {
     _loadVisits();
     _loadEntries();
     _loadHealth();
+    _loadStools();
     try {
       final p = await widget.store.load();
       if (!mounted) return;
@@ -220,7 +244,7 @@ class _HomeShellState extends State<HomeShell> {
                 ),
               const SizedBox(height: 8),
               Text(
-                '일기 ${preview.diary}편 · 방문 ${preview.visits}건\n체중 ${preview.weights}건 · 접종·예방약 ${preview.health}건',
+                '일기 ${preview.diary}편 · 방문 ${preview.visits}건\n체중 ${preview.weights}건 · 접종·예방약 ${preview.health}건 · 배변 ${preview.stools}건',
               ),
               const SizedBox(height: 8),
               const Text(
@@ -268,7 +292,9 @@ class _HomeShellState extends State<HomeShell> {
         visitStore: _visitStore,
         weightStore: _weightStore,
         healthStore: _healthStore,
+        stoolStore: _stoolStore,
       );
+      await _loadStools();
       await _loadVisits();
       await _loadEntries();
       await _loadHealth();
@@ -277,7 +303,7 @@ class _HomeShellState extends State<HomeShell> {
         ..showSnackBar(
           SnackBar(
             content: Text(
-              '복원했어요. 일기 ${r.diary} · 방문 ${r.visits} · 체중 ${r.weights} · 접종 ${r.health}'
+              '복원했어요. 일기 ${r.diary} · 방문 ${r.visits} · 체중 ${r.weights} · 접종 ${r.health} · 배변 ${r.stools}'
               '${r.skipped > 0 ? ' (읽지 못한 항목 ${r.skipped}건 건너뜀)' : ''}',
             ),
           ),
@@ -309,6 +335,7 @@ class _HomeShellState extends State<HomeShell> {
                     visitStore: _visitStore,
                     weightStore: _weightStore,
                     healthStore: _healthStore,
+                    stoolStore: _stoolStore,
                   );
                   await downloadTextFile(
                     backupFileName('chio-backup', 'json'),
@@ -437,8 +464,15 @@ class _HomeShellState extends State<HomeShell> {
         actions: _visitActions,
         stats: WeekStats.from(_entries, DateTime.now()),
         dueHealth: HealthRecord.due(_health, DateTime.now(), withinDays: 14),
+        stoolAlerts: StoolLog.recentAttention(_stools, todayString()),
         onOpenHealth: () => setState(() {
           _healthNonce++;
+          _healthInitial = 1;
+          _tab = 3;
+        }),
+        onOpenStool: () => setState(() {
+          _healthNonce++;
+          _healthInitial = 2;
           _tab = 3;
         }),
       ),
@@ -458,9 +492,11 @@ class _HomeShellState extends State<HomeShell> {
       ),
       HealthScreen(
         key: ValueKey('health-$_healthNonce'),
-        initialTab: _healthNonce == 0 ? 0 : 1,
+        initialTab: _healthNonce == 0 ? 0 : _healthInitial,
         weightStore: _weightStore,
         healthStore: _healthStore,
+        stoolStore: _stoolStore,
+        onStoolChanged: _loadStools,
         authorName: authorName,
         onHealthChanged: _loadHealth,
         places: _profile.places,
@@ -537,6 +573,8 @@ class _HomeTab extends StatelessWidget {
     required this.stats,
     required this.dueHealth,
     required this.onOpenHealth,
+    this.stoolAlerts = const [],
+    this.onOpenStool,
   });
   final PetProfile profile;
   final List<Visit> upcoming;
@@ -544,6 +582,8 @@ class _HomeTab extends StatelessWidget {
   final WeekStats stats;
   final List<HealthRecord> dueHealth;
   final VoidCallback onOpenHealth;
+  final List<StoolLog> stoolAlerts; // 최근 3일 안의 주의 기록
+  final VoidCallback? onOpenStool;
 
   @override
   Widget build(BuildContext context) {
@@ -570,6 +610,20 @@ class _HomeTab extends StatelessWidget {
           ),
         ),
         WeekStatsCard(stats: stats),
+        if (stoolAlerts.length >= 2 || stoolAlerts.any((s) => s.urgent))
+          Card(
+            color: Theme.of(context).colorScheme.errorContainer,
+            child: ListTile(
+              onTap: onOpenStool,
+              leading: const Icon(Icons.warning_amber_rounded),
+              title: const Text('최근 배변 상태를 살펴보세요'),
+              subtitle: Text(
+                stoolAlerts.any((s) => s.urgent)
+                    ? '붉은 피나 검은 변이 기록됐어요. 병원 상담을 권해요.'
+                    : '최근 3일간 주의 기록이 ${stoolAlerts.length}건이에요.',
+              ),
+            ),
+          ),
         if (dueHealth.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.only(top: 16, bottom: 4),

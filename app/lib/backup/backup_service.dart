@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../data/diary_store.dart';
 import '../data/record_store.dart';
 import '../models/health_record.dart';
+import '../models/stool_log.dart';
 import '../models/weight_log.dart';
 import '../data/visit_store.dart';
 import '../models/pet_profile.dart';
@@ -64,6 +65,7 @@ Future<String> buildBackupJson({
   required VisitStore visitStore,
   RecordStore<WeightLog>? weightStore,
   RecordStore<HealthRecord>? healthStore,
+  RecordStore<StoolLog>? stoolStore,
   void Function(String step)? onProgress,
   DateTime? now,
 }) async {
@@ -96,6 +98,9 @@ Future<String> buildBackupJson({
   final health = [
     for (final h in await healthStore?.load() ?? <HealthRecord>[]) h.toMap(),
   ];
+  final stools = [
+    for (final s in await stoolStore?.load() ?? <StoolLog>[]) s.toMap(),
+  ];
   return const JsonEncoder.withIndent(' ').convert({
     'app': '치오 데일리',
     'version': 2,
@@ -105,6 +110,7 @@ Future<String> buildBackupJson({
     'visits': visits,
     'weights': weights,
     'health': health,
+    'stools': stools,
   });
 }
 

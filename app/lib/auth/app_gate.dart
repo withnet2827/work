@@ -6,6 +6,7 @@ import '../data/firestore_profile_store.dart';
 import '../data/firestore_record_store.dart';
 import '../data/firestore_visit_store.dart';
 import '../models/health_record.dart';
+import '../models/stool_log.dart';
 import '../models/weight_log.dart';
 import '../screens/home_shell.dart';
 import 'family.dart';
@@ -101,6 +102,14 @@ class _AppGateState extends State<AppGate> {
             toMap: (e) => e.toMap(),
             fromMap: HealthRecord.fromMap,
             idOf: (e) => e.id,
+          ),
+          stoolStore: FirestoreRecordStore<StoolLog>(
+            familyId: family.id,
+            collection: 'stools',
+            toMap: (e) => e.toMap(),
+            fromMap: StoolLog.fromMap,
+            idOf: (e) => e.id,
+            limit: 150, // 사진이 들어 있어 최근 기록만 불러온다
           ),
           familyInfo: FamilyInfo(
             name: family.name,

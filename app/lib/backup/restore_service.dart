@@ -8,6 +8,7 @@ import '../models/diary_entry.dart';
 import '../models/health_record.dart';
 import '../models/pet_profile.dart';
 import '../models/visit.dart';
+import '../models/stool_log.dart';
 import '../models/weight_log.dart';
 
 /// 백업 파일의 내용 요약(복원 전 확인용).
@@ -20,6 +21,7 @@ class BackupPreview {
     required this.visits,
     required this.weights,
     required this.health,
+    this.stools = 0,
   });
   final Map<String, dynamic> data;
   final String exportedAt;
@@ -28,8 +30,9 @@ class BackupPreview {
   final int visits;
   final int weights;
   final int health;
+  final int stools;
 
-  int get total => diary + visits + weights + health;
+  int get total => diary + visits + weights + health + stools;
 }
 
 class RestoreResult {
@@ -40,6 +43,7 @@ class RestoreResult {
     this.visits = 0,
     this.weights = 0,
     this.health = 0,
+    this.stools = 0,
     this.skipped = 0,
   });
   final bool profile;
@@ -48,6 +52,7 @@ class RestoreResult {
   final int visits;
   final int weights;
   final int health;
+  final int stools;
   final int skipped; // 형식이 잘못되어 건너뛴 항목 수
 }
 
@@ -84,6 +89,7 @@ BackupPreview parseBackup(String json) {
     visits: _list(data, 'visits').length,
     weights: _list(data, 'weights').length,
     health: _list(data, 'health').length,
+    stools: _list(data, 'stools').length,
   );
 }
 
@@ -96,6 +102,7 @@ Future<RestoreResult> restoreBackup({
   required VisitStore visitStore,
   required RecordStore<WeightLog> weightStore,
   required RecordStore<HealthRecord> healthStore,
+  RecordStore<StoolLog>? stoolStore,
   void Function(String step)? onProgress,
 }) async {
   final d = preview.data;
@@ -179,6 +186,19 @@ Future<RestoreResult> restoreBackup({
     }
   }
 
+  var stoolCount = 0;
+  if (stoolStore != null) {
+    onProgress?.call('배변 기록 복원 중');
+    for (final m in _list(d, 'stools')) {
+      try {
+        await stoolStore.save(StoolLog.fromMap(m));
+        stoolCount++;
+      } catch (_) {
+        skipped++;
+      }
+    }
+  }
+
   return RestoreResult(
     profile: profile,
     diary: diaryCount,
@@ -186,6 +206,7 @@ Future<RestoreResult> restoreBackup({
     visits: visitCount,
     weights: weightCount,
     health: healthCount,
+    stools: stoolCount,
     skipped: skipped,
   );
 }

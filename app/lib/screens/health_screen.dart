@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../data/record_store.dart';
 import '../models/health_record.dart';
 import '../models/place.dart';
+import '../models/stool_log.dart';
 import '../models/weight_log.dart';
 import 'health_section.dart';
+import 'stool_section.dart';
 import 'weight_section.dart';
 
 /// 건강 탭: 체중 / 접종·예방약.
@@ -13,16 +15,20 @@ class HealthScreen extends StatefulWidget {
     super.key,
     required this.weightStore,
     required this.healthStore,
+    required this.stoolStore,
     required this.authorName,
     required this.onHealthChanged,
     this.initialTab = 0,
+    this.onStoolChanged,
     this.places = const [],
   });
   final RecordStore<WeightLog> weightStore;
   final RecordStore<HealthRecord> healthStore;
+  final RecordStore<StoolLog> stoolStore;
+  final VoidCallback? onStoolChanged;
   final String authorName;
   final VoidCallback onHealthChanged;
-  final int initialTab; // 0 체중, 1 접종·예방약
+  final int initialTab; // 0 체중, 1 접종·예방약, 2 배변
   final List<Place> places; // 프로필에 등록된 장소(기본 병원 초기값용)
 
   @override
@@ -50,6 +56,11 @@ class _HealthScreenState extends State<HealthScreen> {
                 icon: Icon(Icons.vaccines_outlined),
                 label: Text('접종·예방약'),
               ),
+              ButtonSegment(
+                value: 2,
+                icon: Icon(Icons.pets_outlined),
+                label: Text('배변'),
+              ),
             ],
             selected: {_tab},
             onSelectionChanged: (s) => setState(() => _tab = s.first),
@@ -60,6 +71,12 @@ class _HealthScreenState extends State<HealthScreen> {
               ? WeightSection(
                   store: widget.weightStore,
                   authorName: widget.authorName,
+                )
+              : _tab == 2
+              ? StoolSection(
+                  store: widget.stoolStore,
+                  authorName: widget.authorName,
+                  onChanged: widget.onStoolChanged,
                 )
               : HealthSection(
                   store: widget.healthStore,
