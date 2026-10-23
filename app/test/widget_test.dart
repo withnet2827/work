@@ -1018,4 +1018,34 @@ void main() {
     expect(StoolAnalysis.parse('JSON 아님'), isNull);
     expect(StoolAnalysis.parse(null), isNull);
   });
+
+  test('산책 기록: 배변 사진·분석 필드 저장/복원과 점수→표시 변환', () {
+    const w = WalkLog(
+      place: '공원',
+      poop: '정상',
+      photo: 'AAA=',
+      ai: 'AI 참고 의견(정상): 양호',
+      stoolId: 's1',
+      stoolScore: 3,
+      stoolColor: '갈색',
+      stoolFlags: ['점액'],
+    );
+    final r = WalkLog.fromMap(w.toMap());
+    expect(r.stoolId, 's1');
+    expect(r.stoolScore, 3);
+    expect(r.stoolFlags, ['점액']);
+    expect(r.photo, 'AAA=');
+    expect(WalkLog.poopFromScore(7), '설사');
+    expect(WalkLog.poopFromScore(5), '무름');
+    expect(WalkLog.poopFromScore(1), '딱딱함');
+    expect(WalkLog.poopFromScore(3), '정상');
+    final f = FeedLog.fromMap(const FeedLog(kind: '간식', photo: 'BBB=').toMap());
+    expect(f.photo, 'BBB=');
+    // 이전 형식(사진 없음) 데이터도 읽힌다.
+    expect(WalkLog.fromMap(const {'place': 'x'}).photo, '');
+    const s = StoolLog(id: 'a', date: '2026-10-23', source: '일기', diaryId: 'd1');
+    final sr = StoolLog.fromMap(s.toMap());
+    expect(sr.source, '일기');
+    expect(sr.diaryId, 'd1');
+  });
 }

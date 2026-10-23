@@ -219,8 +219,32 @@ class _DiaryDetailScreenState extends State<DiaryDetailScreen> {
                   for (var i = 0; i < e.walks.length; i++)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        '${i + 1}회  ${e.walks[i].summary}${e.walks[i].memo.isEmpty ? '' : '\n      ${e.walks[i].memo}'}',
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (e.walks[i].photo.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: Image.memory(
+                                  base64Decode(e.walks[i].photo),
+                                  width: 56,
+                                  height: 56,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) =>
+                                      const SizedBox(width: 56, height: 56),
+                                ),
+                              ),
+                            ),
+                          Expanded(
+                            child: Text(
+                              '${i + 1}회  ${e.walks[i].summary}'
+                              '${e.walks[i].memo.isEmpty ? '' : '\n${e.walks[i].memo}'}'
+                              '${e.walks[i].ai.isEmpty ? '' : '\n${e.walks[i].ai}'}',
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ],
@@ -230,8 +254,30 @@ class _DiaryDetailScreenState extends State<DiaryDetailScreen> {
                   for (final f in e.feeds)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        '${f.summary}${f.memo.isEmpty ? '' : '\n  ${f.memo}'}',
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (f.photo.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: Image.memory(
+                                  base64Decode(f.photo),
+                                  width: 56,
+                                  height: 56,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) =>
+                                      const SizedBox(width: 56, height: 56),
+                                ),
+                              ),
+                            ),
+                          Expanded(
+                            child: Text(
+                              '${f.summary}${f.memo.isEmpty ? '' : '\n${f.memo}'}',
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ],

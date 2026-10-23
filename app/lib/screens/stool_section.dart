@@ -195,6 +195,7 @@ class _StoolSectionState extends State<StoolSection> {
                   subtitle: Text(
                     [
                       StoolLog.scoreLabels[s.score] ?? '',
+                      if (s.source == '일기') '📖 일기에서',
                       if (s.flags.isNotEmpty) s.flags.join(', '),
                       if (s.memo.isNotEmpty) s.memo,
                       if (s.ai.isNotEmpty) s.ai,

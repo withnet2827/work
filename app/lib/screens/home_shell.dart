@@ -480,6 +480,8 @@ class _HomeShellState extends State<HomeShell> {
         store: _diaryStore,
         authorName: authorName,
         userId: widget.familyInfo?.userId ?? 'local',
+        stoolStore: _stoolStore,
+        onStoolChanged: _loadStools,
       ),
       VisitsScreen(
         store: _visitStore,

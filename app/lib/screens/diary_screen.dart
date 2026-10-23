@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 
 import '../data/change_source.dart';
 import '../data/diary_store.dart';
+import '../data/record_store.dart';
 import '../models/attachment.dart';
 import '../models/diary_entry.dart';
+import '../models/stool_log.dart';
 import 'attachment_viewer_screen.dart';
 import 'diary_detail_screen.dart';
 import 'diary_edit_screen.dart';
@@ -18,10 +20,14 @@ class DiaryScreen extends StatefulWidget {
     required this.store,
     required this.authorName,
     this.userId = 'local',
+    this.stoolStore,
+    this.onStoolChanged,
   });
   final DiaryStore store;
   final String authorName;
   final String userId;
+  final RecordStore<StoolLog>? stoolStore; // 산책 배변 사진을 건강 탭에도 저장
+  final VoidCallback? onStoolChanged;
 
   @override
   State<DiaryScreen> createState() => _DiaryScreenState();
@@ -90,15 +96,18 @@ class _DiaryScreenState extends State<DiaryScreen> {
         builder: (_) => DiaryEditScreen(
           entry: entry,
           isNew: isNew,
+          stoolStore: widget.stoolStore,
           onSave: (e) async {
             await widget.store.save(e);
             await _reload();
+            widget.onStoolChanged?.call();
           },
           onDelete: isNew
               ? null
               : () async {
                   await widget.store.delete(entry.id);
                   await _reload();
+                  widget.onStoolChanged?.call();
                 },
         ),
       ),
@@ -127,6 +136,18 @@ class _DiaryScreenState extends State<DiaryScreen> {
     if (ok != true) return false;
     try {
       await widget.store.delete(e.id);
+      // 이 일기의 산책 기록과 연결된 건강 탭 배변 기록도 함께 지운다.
+      final stools = widget.stoolStore;
+      if (stools != null) {
+        for (final w in e.walks) {
+          if (w.stoolId.isNotEmpty) {
+            try {
+              await stools.delete(w.stoolId);
+            } catch (_) {}
+          }
+        }
+        widget.onStoolChanged?.call();
+      }
       await _reload();
       return true;
     } catch (err) {

@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
+import '../ai/stool_analyzer.dart';
 import '../models/daily_log.dart';
+import 'stool_photo_panel.dart';
 
 String _hhmm(TimeOfDay t) =>
     '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
@@ -15,6 +19,24 @@ Future<String?> _pickTime(BuildContext context, String current) async {
       : TimeOfDay.now();
   final t = await showTimePicker(context: context, initialTime: initial);
   return t == null ? null : _hhmm(t);
+}
+
+/// 목록용 작은 사진.
+class _Thumb extends StatelessWidget {
+  const _Thumb(this.b64);
+  final String b64;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(6),
+    child: Image.memory(
+      base64Decode(b64),
+      width: 40,
+      height: 40,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => const SizedBox(width: 40, height: 40),
+    ),
+  );
 }
 
 /// 산책 입력 카드: 여러 번 추가·수정·삭제.
@@ -71,8 +93,15 @@ class WalkSection extends StatelessWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 dense: true,
+                leading: walks[i].photo.isEmpty ? null : _Thumb(walks[i].photo),
                 title: Text('${i + 1}회  ${walks[i].summary}'),
-                subtitle: walks[i].memo.isEmpty ? null : Text(walks[i].memo),
+                subtitle: [walks[i].memo, walks[i].ai].where((e) => e.isNotEmpty).isEmpty
+                    ? null
+                    : Text(
+                        [walks[i].memo, walks[i].ai]
+                            .where((e) => e.isNotEmpty)
+                            .join('\n'),
+                      ),
                 onTap: () => _edit(context, index: i),
                 trailing: IconButton(
                   icon: const Icon(Icons.close, size: 18),
@@ -98,6 +127,11 @@ class _WalkForm extends StatefulWidget {
 class _WalkFormState extends State<_WalkForm> {
   late String _time = widget.initial.time;
   late String _poop = widget.initial.poop;
+  late String _photo = widget.initial.photo;
+  late String _ai = widget.initial.ai;
+  late int _score = widget.initial.stoolScore;
+  late String _stoolColor = widget.initial.stoolColor;
+  late List<String> _stoolFlags = List.of(widget.initial.stoolFlags);
   late final _place = TextEditingController(text: widget.initial.place);
   late final _minutes = TextEditingController(
     text: widget.initial.minutes == 0 ? '' : '${widget.initial.minutes}',
@@ -167,6 +201,30 @@ class _WalkFormState extends State<_WalkForm> {
               ],
             ),
             const SizedBox(height: 12),
+            const Text('배변 사진 (건강 탭의 배변 기록에도 같이 저장돼요)'),
+            const SizedBox(height: 4),
+            StoolPhotoPanel(
+              photo: _photo,
+              showAi: true,
+              onPhotoChanged: (p) => setState(() {
+                _photo = p;
+                if (p.isEmpty) {
+                  _ai = '';
+                  _score = 0;
+                  _stoolColor = '';
+                  _stoolFlags = [];
+                }
+              }),
+              onAnalysis: (a) => setState(() => _ai = a.note),
+              onApply: (a) => setState(() {
+                _score = a.score;
+                _stoolColor = a.color;
+                _stoolFlags = a.flags;
+                _poop = WalkLog.poopFromScore(a.score);
+                _ai = a.note;
+              }),
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _memo,
               maxLines: 2,
@@ -192,6 +250,18 @@ class _WalkFormState extends State<_WalkForm> {
                       minutes: int.tryParse(_minutes.text.trim()) ?? 0,
                       poop: _poop,
                       memo: _memo.text.trim(),
+                      photo: _photo,
+                      ai: _photo.isEmpty ? '' : _ai,
+                      // 사진이나 분석 결과가 있으면 건강 탭 배변 기록과 연결한다.
+                      stoolId: (_photo.isNotEmpty || _score > 0)
+                          ? (widget.initial.stoolId.isNotEmpty
+                                ? widget.initial.stoolId
+                                : DateTime.now().microsecondsSinceEpoch
+                                      .toString())
+                          : '',
+                      stoolScore: _score,
+                      stoolColor: _stoolColor,
+                      stoolFlags: _stoolFlags,
                     ),
                   ),
                   child: const Text('확인'),
@@ -264,6 +334,7 @@ class FeedSection extends StatelessWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 dense: true,
+                leading: feeds[i].photo.isEmpty ? null : _Thumb(feeds[i].photo),
                 title: Text(feeds[i].summary),
                 subtitle: feeds[i].memo.isEmpty ? null : Text(feeds[i].memo),
                 onTap: () => _edit(context, index: i),
@@ -293,6 +364,7 @@ class _FeedFormState extends State<_FeedForm> {
   late final _kind = TextEditingController(text: widget.initial.kind);
   late final _amount = TextEditingController(text: widget.initial.amount);
   late final _memo = TextEditingController(text: widget.initial.memo);
+  late String _photo = widget.initial.photo;
 
   @override
   void dispose() {
@@ -354,6 +426,11 @@ class _FeedFormState extends State<_FeedForm> {
               ),
             ),
             const SizedBox(height: 12),
+            StoolPhotoPanel(
+              photo: _photo,
+              onPhotoChanged: (p) => setState(() => _photo = p),
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _memo,
               maxLines: 2,
@@ -374,6 +451,7 @@ class _FeedFormState extends State<_FeedForm> {
                   onPressed: () => Navigator.pop(
                     context,
                     FeedLog(
+                      photo: _photo,
                       time: _time,
                       kind: _kind.text.trim(),
                       amount: _amount.text.trim(),

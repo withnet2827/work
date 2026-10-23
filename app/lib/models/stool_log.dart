@@ -9,6 +9,8 @@ class StoolLog {
     this.memo = '',
     this.photo = '',
     this.ai = '',
+    this.source = '',
+    this.diaryId = '',
     this.author = '',
     this.createdAt = 0,
   });
@@ -34,6 +36,8 @@ class StoolLog {
   final String memo;
   final String photo; // 작게 압축한 base64
   final String ai; // AI 참고 의견 한 줄(없으면 빈 문자열)
+  final String source; // '' 직접 기록, '일기' 일기의 산책 기록에서 만든 것
+  final String diaryId; // source가 '일기'일 때 원본 일기 ID
   final String author;
   final int createdAt;
 
@@ -67,6 +71,8 @@ class StoolLog {
     memo: memo ?? this.memo,
     photo: photo ?? this.photo,
     ai: ai ?? this.ai,
+    source: source,
+    diaryId: diaryId,
     author: author,
     createdAt: createdAt,
   );
@@ -80,6 +86,8 @@ class StoolLog {
     'memo': memo,
     'photo': photo,
     'ai': ai,
+    'source': source,
+    'diaryId': diaryId,
     'author': author,
     'createdAt': createdAt,
   };
@@ -93,6 +101,8 @@ class StoolLog {
     memo: m['memo'] as String? ?? '',
     photo: m['photo'] as String? ?? '',
     ai: m['ai'] as String? ?? '',
+    source: m['source'] as String? ?? '',
+    diaryId: m['diaryId'] as String? ?? '',
     author: m['author'] as String? ?? '',
     createdAt: (m['createdAt'] as num?)?.toInt() ?? 0,
   );

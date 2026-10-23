@@ -5,7 +5,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/attachment.dart';
 import '../models/daily_log.dart';
+import '../data/record_store.dart';
 import '../models/diary_entry.dart';
+import '../models/stool_log.dart';
 import 'attachment_viewer_screen.dart';
 import 'daily_log_sections.dart';
 import '../util/photo_compress.dart';
@@ -23,11 +25,15 @@ class DiaryEditScreen extends StatefulWidget {
     required this.isNew,
     required this.onSave,
     this.onDelete,
+    this.stoolStore,
   });
   final DiaryEntry entry;
   final bool isNew;
   final Future<void> Function(DiaryEntry) onSave;
   final Future<void> Function()? onDelete;
+
+  /// 산책 기록의 배변 사진·분석을 건강 탭 배변 기록으로도 저장한다(없으면 연결하지 않음).
+  final RecordStore<StoolLog>? stoolStore;
 
   @override
   State<DiaryEditScreen> createState() => _DiaryEditScreenState();
@@ -113,6 +119,58 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
     });
   }
 
+  /// 산책 기록의 배변 사진·분석을 건강 탭 배변 기록으로 저장하고, 지워진 산책의 기록은 정리한다.
+  /// 일기 저장은 이미 끝났으므로 여기서 실패해도 일기는 유지하고 안내만 한다.
+  Future<void> _syncStools() async {
+    final store = widget.stoolStore;
+    if (store == null) return;
+    try {
+      final keep = <String>{};
+      for (final w in _walks) {
+        if (w.stoolId.isEmpty) continue;
+        keep.add(w.stoolId);
+        await store.save(
+          StoolLog(
+            id: w.stoolId,
+            date: _date,
+            score: w.stoolScore > 0
+                ? w.stoolScore
+                : (w.poop == '설사'
+                      ? 6
+                      : w.poop == '무름'
+                      ? 5
+                      : w.poop == '딱딱함'
+                      ? 1
+                      : 3),
+            color: w.stoolColor.isEmpty ? '갈색' : w.stoolColor,
+            flags: w.stoolFlags,
+            memo: [
+              if (w.place.isNotEmpty) '${w.place} 산책',
+              if (w.memo.isNotEmpty) w.memo,
+            ].join(' · '),
+            photo: w.photo,
+            ai: w.ai,
+            source: '일기',
+            diaryId: widget.entry.id,
+            author: widget.entry.author,
+            createdAt: DateTime.now().millisecondsSinceEpoch,
+          ),
+        );
+      }
+      for (final w in widget.entry.walks) {
+        if (w.stoolId.isNotEmpty && !keep.contains(w.stoolId)) {
+          await store.delete(w.stoolId);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('일기는 저장했지만 건강 탭 배변 기록은 저장하지 못했어요. $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _save() async {
     if (_body.text.trim().isEmpty &&
         _photos.isEmpty &&
@@ -120,6 +178,18 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
         _feeds.isEmpty) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('내용이나 사진을 넣어 주세요.')));
+      return;
+    }
+    // 산책·급여 사진은 일기 문서에 함께 들어가므로 전체 크기를 제한한다(문서 1MB 제한 여유).
+    final extra =
+        _walks.fold<int>(0, (a, w) => a + w.photo.length) +
+        _feeds.fold<int>(0, (a, f) => a + f.photo.length);
+    if (extra > 600000) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('산책·급여 사진이 너무 많아요. 몇 장만 남겨 주세요(약 5장까지).'),
+        ),
+      );
       return;
     }
     setState(() => _busy = true);
@@ -134,6 +204,7 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
           feeds: _feeds,
         ),
       );
+      await _syncStools();
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
@@ -166,6 +237,17 @@ class _DiaryEditScreenState extends State<DiaryEditScreen> {
     setState(() => _busy = true);
     try {
       await widget.onDelete!();
+      // 이 일기의 산책 기록과 연결된 건강 탭 배변 기록도 함께 지운다.
+      final store = widget.stoolStore;
+      if (store != null) {
+        for (final w in widget.entry.walks) {
+          if (w.stoolId.isNotEmpty) {
+            try {
+              await store.delete(w.stoolId);
+            } catch (_) {}
+          }
+        }
+      }
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
